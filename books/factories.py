@@ -4,9 +4,11 @@ from books.models import (
     Author,
     Book,
     BookAuthor,
+    BookGenre,
     BookshelfItem,
     Genre,
     ReadingLog,
+    ReadingProgress,
     ReadingStatus,
     Review,
     Shelf,
@@ -68,9 +70,27 @@ class ReviewFactory(factory.django.DjangoModelFactory):
     rating = 4
 
 
+class BookGenreFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = BookGenre
+
+    book = factory.SubFactory(BookFactory)
+    genre = factory.SubFactory(GenreFactory)
+
+
 class ReadingLogFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ReadingLog
+        django_get_or_create = ("book",)
 
     book = factory.SubFactory(BookFactory)
     status = ReadingStatus.NOT_STARTED
+
+
+class ReadingProgressFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ReadingProgress
+
+    book = factory.SubFactory(BookFactory)
+    reading_log = factory.LazyAttribute(lambda obj: obj.book.reading_log)
+    progress_percent = 10

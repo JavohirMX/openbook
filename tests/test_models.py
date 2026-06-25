@@ -7,11 +7,10 @@ from books.factories import (
     BookFactory,
     BookshelfItemFactory,
     GenreFactory,
-    ReadingLogFactory,
     ReviewFactory,
     ShelfFactory,
 )
-from books.models import Book, ReadingStatus
+from books.models import Book, ReadingLog, ReadingStatus
 
 
 @pytest.mark.django_db
@@ -54,12 +53,13 @@ class TestReviewModel:
 class TestReadingLogModel:
     def test_one_reading_log_per_book(self):
         book = BookFactory()
-        ReadingLogFactory(book=book)
+        assert ReadingLog.objects.filter(book=book).count() == 1
         with pytest.raises(IntegrityError):
-            ReadingLogFactory(book=book)
+            ReadingLog.objects.create(book=book, status=ReadingStatus.NOT_STARTED)
 
     def test_default_status_is_not_started(self):
-        log = ReadingLogFactory()
+        book = BookFactory()
+        log = book.reading_log
         assert log.status == ReadingStatus.NOT_STARTED
 
 

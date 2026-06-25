@@ -54,9 +54,9 @@ def custom_exception_handler(exc, context):
         )
 
     status_code = response.status_code
-    code = ERROR_CODES.get(status_code, "server_error")
+    code = ERROR_CODES.get(status_code, getattr(exc, "default_code", "server_error"))
     message = _extract_message(response.data)
-    details = _extract_details(response.data, status_code)
+    details = getattr(exc, "details", None) or _extract_details(response.data, status_code)
 
     if status_code == 401 and message == "Request failed.":
         message = "Authentication credentials were not provided."

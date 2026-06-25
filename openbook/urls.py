@@ -4,9 +4,11 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
 from accounts.api import LoginView, LogoutView
+from books.views import BookViewSet, ShelfViewSet, StatsView
 
 router = DefaultRouter()
-# Future viewsets register here, e.g. router.register("books", BookViewSet)
+router.register("books", BookViewSet, basename="book")
+router.register("shelves", ShelfViewSet, basename="shelf")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -18,5 +20,6 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="docs",
     ),
+    path("api/v1/stats/", StatsView.as_view(), name="api-stats"),
     path("api/v1/", include(router.urls)),
 ]
