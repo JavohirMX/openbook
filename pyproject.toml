@@ -1,0 +1,28 @@
+[project]
+name = "openbook"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "django~=5.2",
+    "django-cors-headers~=4.0",
+    "djangorestframework~=3.17",
+    "drf-spectacular~=0.28",
+    "gunicorn>=26.0.0",
+    "psycopg[binary]~=3.2",
+    "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+    "whitenoise~=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "factory-boy>=3.3.3",
+    "pytest>=9.1.1",
+    "pytest-django>=4.12.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "openbook.settings"
+python_files = ["test_*.py", "*_test.py"]
+testpaths = ["tests"]

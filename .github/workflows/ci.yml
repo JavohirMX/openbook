@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: openbook
+          POSTGRES_PASSWORD: openbook
+          POSTGRES_DB: openbook_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openbook -d openbook_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://openbook:openbook@localhost:5432/openbook_test
+      SECRET_KEY: test-secret-key-for-ci
+      DEBUG: "False"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8
+
+      - name: Install dependencies
+        run: uv sync --locked --dev
+
+      - name: Run migrations
+        run: uv run python manage.py migrate --noinput
+
+      - name: Create cache table
+        run: uv run python manage.py createcachetable --allow-migrate
+
+      - name: Run tests
+        run: uv run pytest
