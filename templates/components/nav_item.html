@@ -1,0 +1,4 @@
+<a href="{{ url }}" class="nav-item {% if active %}nav-item-active{% endif %} {{ extra_class|default:'' }}">
+  <svg class="w-5 h-5 shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">{{ icon_path|safe }}</svg>
+  <span>{{ label }}</span>
+</a>

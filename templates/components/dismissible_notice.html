@@ -1,0 +1,13 @@
+<div class="relative pr-10 px-4 py-3 text-sm border {{ extra_class|default:'' }}
+  {% if variant == 'error' %}border-red-800/40 dark:border-red-700/50 text-red-950 dark:text-red-300 bg-red-50/50 dark:bg-red-950/30
+  {% elif variant == 'warning' %}border-neutral-400 dark:border-neutral-600 text-neutral-900 dark:text-neutral-300 bg-neutral-100/50 dark:bg-neutral-900/50
+  {% elif variant == 'info' %}border-neutral-300 dark:border-neutral-700 text-neutral-800 dark:text-neutral-300 bg-neutral-50/50 dark:bg-neutral-900/50
+  {% else %}border-green-800/40 dark:border-green-700/50 text-green-950 dark:text-green-300 bg-green-50/50 dark:bg-green-950/30{% endif %}"
+  data-dismissible-notice{% if role %} role="{{ role }}"{% endif %}>
+  <div class="min-w-0">
+    {% if content_template %}{% include content_template %}{% else %}{{ message }}{% endif %}
+  </div>
+  <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 min-h-11 min-w-11 inline-flex items-center justify-center opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300" data-dismiss-notice aria-label="Dismiss">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>
+</div>

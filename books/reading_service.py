@@ -44,10 +44,13 @@ def update_reading_log(reading_log, data):
     reading_log.save()
 
     should_log_progress = any(field in data for field in progress_fields)
-    if old_status != new_status and new_status == ReadingStatus.FINISHED:
+    if old_status != new_status:
         should_log_progress = True
 
     if should_log_progress:
+        note = data.get("note")
+        if old_status != new_status and not note:
+            note = f"Status: {reading_log.get_status_display()}"
         ReadingProgress.objects.create(
             reading_log=reading_log,
             book=reading_log.book,
@@ -55,7 +58,7 @@ def update_reading_log(reading_log, data):
             current_page=reading_log.current_page,
             progress_percent=reading_log.progress_percent,
             pages_read=data.get("pages_read"),
-            note=data.get("note"),
+            note=note,
         )
 
     return reading_log

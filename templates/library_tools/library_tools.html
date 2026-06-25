@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Library Tools — openbook{% endblock %}
+{% block content %}
+<h1 class="page-title mb-6">Library Tools</h1>
+
+<div class="space-y-6">
+  <section class="surface-padded">
+    <h2 class="section-title mb-4">Library health</h2>
+    <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+      <div>
+        <dt class="text-neutral-500 dark:text-neutral-400">Total books</dt>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.total_books }}</dd>
+      </div>
+      <div>
+        <dt class="text-neutral-500 dark:text-neutral-400">Missing cover</dt>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.missing_cover }}</dd>
+      </div>
+      <div>
+        <dt class="text-neutral-500 dark:text-neutral-400">Missing pages</dt>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.missing_pages }}</dd>
+      </div>
+      <div>
+        <dt class="text-neutral-500 dark:text-neutral-400">No authors</dt>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.no_authors }}</dd>
+      </div>
+      <div>
+        <dt class="text-neutral-500 dark:text-neutral-400">No genres</dt>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.no_genres }}</dd>
+      </div>
+      <div>
+        <dt class="text-neutral-500 dark:text-neutral-400">No ISBN</dt>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.no_isbn }}</dd>
+      </div>
+      <div>
+        <dt class="text-neutral-500 dark:text-neutral-400">Need metadata</dt>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.needing_metadata }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Metadata backfill</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      Look up missing cover, pages, authors, and other fields from Open Library / Google Books.
+      Only empty fields are filled — existing data is never overwritten.
+    </p>
+  {% if needing_metadata_count %}
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="backfill_metadata">
+      <button type="submit" class="btn-primary text-sm">
+        Backfill {{ needing_metadata_count }} book{{ needing_metadata_count|pluralize }}
+      </button>
+    </form>
+    <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Runs in the background with rate limiting. Books must have an ISBN.</p>
+  {% else %}
+    <p class="text-sm text-neutral-600 dark:text-neutral-400">All books with ISBNs have complete metadata.</p>
+  {% endif %}
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Metadata cache</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      Clear cached ISBN lookups to force fresh results from Open Library and Google Books on the next request.
+    </p>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="action" value="clear_metadata_cache">
+      <button type="submit" class="btn-secondary text-sm" onclick="return confirm('Clear all cached metadata lookups?')">
+        Clear metadata cache
+      </button>
+    </form>
+  </section>
+
+  {% if recent_jobs %}
+  <section class="surface-padded">
+    <h2 class="section-title mb-4">Recent backfill jobs</h2>
+    <ul class="divide-y divide-neutral-100 dark:divide-neutral-800 text-sm">
+      {% for job in recent_jobs %}
+      <li class="py-2 flex items-center justify-between gap-4">
+        <span class="text-neutral-700 dark:text-neutral-300">
+          {{ job.get_status_display }}
+          <span class="text-neutral-400 dark:text-neutral-500">({{ job.created_at|date:"M j, Y g:i A" }})</span>
+        </span>
+        <a href="{% url 'web:import-job-detail' job.pk %}" class="link text-sm shrink-0">View</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

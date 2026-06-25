@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Authors — openbook{% endblock %}
+{% block content %}
+<h1 class="page-title mb-6">Authors</h1>
+
+<form method="get" class="mb-6 max-w-md">
+  <label for="author-search" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Search</label>
+  <input type="search" name="search" id="author-search" value="{{ request.GET.search }}" placeholder="Author name…" class="input">
+</form>
+
+{% if authors %}
+<ul class="surface-list">
+  {% for author in authors %}
+  <li class="px-4 py-4">
+    <a href="{% url 'web:author-detail' author.pk %}" class="flex items-center justify-between gap-4">
+      <span class="font-medium text-neutral-950 dark:text-neutral-100">{{ author.name }}</span>
+      <span class="text-sm text-neutral-500 dark:text-neutral-400">{{ author.book_count }} book{{ author.book_count|pluralize }}</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+{% include "components/empty_state.html" with title="No authors found" description="Authors appear when you add books." %}
+{% endif %}
+{% endblock %}

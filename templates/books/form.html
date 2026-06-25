@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} — openbook{% endblock %}
+{% block content %}
+<h1 class="page-title mb-6">{{ title }}</h1>
+
+<form method="post" class="surface-padded max-w-2xl" data-disable-on-submit>
+  {% csrf_token %}
+  <div class="mb-4">
+    <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1" for="metadata-search-input">Search by title or author</label>
+    <input type="search" id="metadata-search-input" name="q" placeholder="Title, author…"
+           class="input"
+           hx-get="{% url 'web:book-search-metadata' %}" hx-trigger="input changed delay:400ms" hx-target="#metadata-search-results" hx-indicator="#metadata-search-loading">
+    <div id="metadata-search-loading" class="htmx-indicator text-sm text-neutral-600 dark:text-neutral-400 mt-2">Searching…</div>
+    <div id="metadata-search-results" class="mt-3"></div>
+  </div>
+  <div class="mb-4">
+    <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1" for="isbn-lookup-input">ISBN (lookup)</label>
+    <input type="text" name="isbn" id="isbn-lookup-input" value="{{ form.isbn.value|default:'' }}"
+           class="input"
+           hx-get="{% url 'web:book-lookup' %}" hx-trigger="change delay:500ms" hx-include="#isbn-lookup-input" hx-target="#lookup-result" hx-indicator="#lookup-loading">
+    <div id="lookup-loading" class="htmx-indicator text-sm text-neutral-600 dark:text-neutral-400 mt-2">Looking up…</div>
+    <div id="lookup-result" class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"></div>
+  </div>
+  <div id="book-form-fields">
+    {% include "books/partials/form_fields.html" %}
+  </div>
+  <div class="mt-6 flex gap-3">
+    <button type="submit" class="btn-primary" data-loading-text="Saving…">Save</button>
+    <a href="{% url 'web:book-list' %}" class="btn-secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

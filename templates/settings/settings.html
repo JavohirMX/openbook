@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Settings — openbook{% endblock %}
+{% block content %}
+<h1 class="page-title mb-10">Settings</h1>
+
+<div class="space-y-8 max-w-xl">
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Profile</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Update your name and timezone for date display and reading streaks.</p>
+    <form method="post" data-disable-on-submit>{% csrf_token %}
+      <input type="hidden" name="action" value="update_profile">
+      <div class="mb-3">
+        <label for="id_email_display" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Email</label>
+        <input type="email" id="id_email_display" value="{{ user.email }}" class="input" disabled>
+      </div>
+      <div class="mb-3">
+        <label for="id_first_name" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">First name</label>
+        {{ profile_form.first_name }}
+      </div>
+      <div class="mb-3">
+        <label for="id_last_name" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Last name</label>
+        {{ profile_form.last_name }}
+      </div>
+      <div class="mb-4">
+        <label for="id_timezone" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Timezone</label>
+        {{ profile_form.timezone }}
+      </div>
+      <button type="submit" class="btn-primary text-sm" data-loading-text="Saving…">Save profile</button>
+    </form>
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Preferences</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-3">Theme</p>
+    {% include "components/theme_picker.html" %}
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">API Token</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Use this token for API access.</p>
+    {% include "components/secret_value.html" with id="api-token" value=api_token show_copy=True copy_label="Copy token" %}
+    {% if new_token %}
+    <p class="text-sm text-neutral-700 dark:text-neutral-300 mb-2">New token (copy now):</p>
+    {% include "components/secret_value.html" with id="new-api-token" value=new_token show_copy=True copy_label="Copy token" %}
+    {% endif %}
+    <form method="post" onsubmit="return confirm('Regenerate token? Old token will stop working.')">{% csrf_token %}
+      <input type="hidden" name="action" value="regenerate_token">
+      <button type="submit" class="btn-secondary text-sm">Regenerate Token</button>
+    </form>
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Embed Widget</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Show your currently reading list on a blog or personal site.</p>
+    <form method="post" class="mb-4">{% csrf_token %}
+      <input type="hidden" name="action" value="update_embed">
+      <label class="inline-flex items-center gap-2 text-sm">
+        <input type="checkbox" name="embed_enabled" {% if embed_enabled %}checked{% endif %} class="rounded border-neutral-300">
+        Enable public embed
+      </label>
+      <button type="submit" class="btn-primary text-sm ml-4">Save</button>
+    </form>
+    {% if embed_enabled and embed_key %}
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Embed key (keep private):</p>
+    <code class="block bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-xs break-all font-mono mb-4">{{ embed_key }}</code>
+    <form method="post" class="mb-4" onsubmit="return confirm('Regenerate embed key? Existing embeds will stop working.')">{% csrf_token %}
+      <input type="hidden" name="action" value="regenerate_embed_key">
+      <button type="submit" class="btn-secondary text-sm">Regenerate embed key</button>
+    </form>
+    <p class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">HTML snippet</p>
+    <pre class="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-3 text-xs overflow-x-auto mb-4"><code>&lt;div id="openbook-reading"&gt;&lt;/div&gt;
+&lt;script src="{{ embed_base_url }}{% url 'web:embed-widget' %}?key={{ embed_key }}&amp;kind=currently_reading" async&gt;&lt;/script&gt;</code></pre>
+    <p class="text-sm text-neutral-500 dark:text-neutral-400">Use <code class="text-xs">kind=recently_finished</code> for recently finished books. JSON API: <code class="text-xs">{{ embed_base_url }}/api/v1/embed/?key=…</code></p>
+    {% elif not embed_enabled %}
+    <p class="text-sm text-neutral-500 dark:text-neutral-400">Enable the embed to get your snippet and key.</p>
+    {% endif %}
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Data</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Import or export your library.</p>
+    <a href="{% url 'web:import-export' %}" class="link text-sm">Import / Export books</a>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% if messages %}
+<div class="mb-4 space-y-2" aria-live="polite">
+  {% for message in messages %}
+  {% if message.tags == 'error' %}
+  {% include "components/dismissible_notice.html" with variant="error" message=message only %}
+  {% elif message.tags == 'warning' %}
+  {% include "components/dismissible_notice.html" with variant="warning" message=message only %}
+  {% elif message.tags == 'info' %}
+  {% include "components/dismissible_notice.html" with variant="info" message=message only %}
+  {% else %}
+  {% include "components/dismissible_notice.html" with variant="success" message=message only %}
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — openbook{% endblock %}
+{% block content %}
+<h1 class="page-title mb-10">Dashboard</h1>
+
+{% if not stats.total_books %}
+{% include "components/empty_state.html" with title="Welcome to openbook" description="Your library is empty. Add your first book or import from Goodreads." cta_url="/books/add/" cta_label="Add your first book" secondary_url="/import-export/" secondary_label="Import books" %}
+{% else %}
+
+<section class="mb-12">
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="section-title">Currently Reading</h2>
+    <a href="{% url 'web:book-list' %}?status=reading" class="link text-sm">See all</a>
+  </div>
+  {% if currently_reading %}
+  <div class="surface-list">
+    {% for log in currently_reading %}
+    <a href="{% url 'web:book-detail' log.book.pk %}" class="flex items-center gap-4 px-4 py-5 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+      {% include "components/book_cover.html" with cover_url=log.book.cover_display_url title=log.book.title width="w-12" height="h-16" %}
+      <div class="min-w-0 flex-1">
+        <p class="font-medium text-neutral-950 dark:text-neutral-100 truncate">{{ log.book.title }}</p>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">{{ log.progress_percent|default:0 }}% done</p>
+        {% include "components/progress_bar.html" with percent=log.progress_percent|default:0 %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  {% include "components/empty_inline.html" with message="No books currently being read." link_url="/books/add/" link_label="Add a book" %}
+  {% endif %}
+</section>
+
+<section class="mb-12">
+  <h2 class="section-title mb-5">Quick Stats</h2>
+  {% include "components/metrics_strip.html" with items=metrics_items %}
+</section>
+
+<section>
+  <h2 class="section-title mb-5">Recent Additions</h2>
+  {% if recent_books %}
+  <ul class="surface-list">
+    {% for book in recent_books %}
+    <li>
+      <a href="{% url 'web:book-detail' book.pk %}" class="flex items-center gap-3 px-4 py-5 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+        {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-10" height="h-14" %}
+        <div class="min-w-0 flex-1">
+          <span class="font-medium text-neutral-950 dark:text-neutral-100">{{ book.title }}</span>
+          <span class="text-neutral-600 dark:text-neutral-400 text-sm"> {% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown{% endfor %}</span>
+        </div>
+        <span class="text-xs text-neutral-500 dark:text-neutral-500 shrink-0">{{ book.created_at|timesince }} ago</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

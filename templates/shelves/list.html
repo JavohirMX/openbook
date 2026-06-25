@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Shelves — openbook{% endblock %}
+{% block content %}
+<h1 class="page-title mb-6">Shelves</h1>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-8">
+    <section>
+      <h2 class="section-title mb-3">Reading shelves</h2>
+      <div class="surface-list">
+        {% for shelf in status_shelves %}
+        <a href="{% url 'web:status-shelf-detail' shelf.slug %}" class="flex items-center justify-between px-4 py-4 min-h-[3.5rem] hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+          <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ shelf.name }}</span>
+          <span class="flex items-center gap-3">
+            <span class="badge">{{ shelf.book_count }} book{{ shelf.book_count|pluralize }}</span>
+            <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title mb-3">Custom shelves</h2>
+      {% if shelves %}
+      <div class="surface-list">
+        {% for shelf in shelves %}
+        <a href="{% url 'web:shelf-detail' shelf.pk %}" class="flex items-center justify-between px-4 py-4 min-h-[3.5rem] hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+          <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ shelf.name }}</span>
+          <span class="flex items-center gap-3">
+            <span class="badge">{{ shelf.book_count }} book{{ shelf.book_count|pluralize }}</span>
+            <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      {% include "components/empty_state.html" with title="No custom shelves yet" description="Create a shelf to tag and organize books beyond reading status." cta_url="#create-shelf-form" cta_label="Create a shelf" %}
+      {% endif %}
+    </section>
+  </div>
+  <div class="surface-padded" id="create-shelf-form">
+    <h2 class="section-title mb-4">Create Shelf</h2>
+    <form method="post" data-disable-on-submit>{% csrf_token %}
+      {% for field in shelf_form %}
+      <div class="mb-3">
+        <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ field.errors.0 }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      <button type="submit" class="btn-primary w-full" data-loading-text="Creating…">Create</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

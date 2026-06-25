@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Import job — openbook{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <a href="{{ back_url }}" class="link text-sm">&larr; Back to {{ back_label }}</a>
+</div>
+
+<h1 class="page-title mb-2">{% if job.kind == 'metadata_backfill' %}Metadata backfill job{% else %}Import job{% endif %}</h1>
+<p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{{ job.get_kind_display }}, started {{ job.created_at|date:"M j, Y g:i A" }}</p>
+
+{% include "import_export/partials/job_status.html" %}
+{% endblock %}

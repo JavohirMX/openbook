@@ -25,9 +25,9 @@ class GenreSource(models.TextChoices):
 
 
 class ReadingStatus(models.TextChoices):
-    NOT_STARTED = "not_started", "Not Started"
+    NOT_STARTED = "not_started", "Want to Read"
     READING = "reading", "Currently Reading"
-    FINISHED = "finished", "Finished"
+    FINISHED = "finished", "Read"
     PAUSED = "paused", "Paused"
     ABANDONED = "abandoned", "DNF"
 
@@ -56,6 +56,11 @@ if _IS_POSTGRESQL:
     ]
 
 
+def cover_upload_path(instance, filename):
+    ext = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
+    return f"covers/{instance.pk}.{ext}"
+
+
 class Book(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=500)
@@ -68,6 +73,10 @@ class Book(models.Model):
     publisher = models.CharField(max_length=500, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     cover_url = models.URLField(max_length=2000, blank=True, null=True)
+    cover_image = models.FileField(upload_to=cover_upload_path, blank=True)
+    openlibrary_work_id = models.CharField(max_length=64, blank=True, null=True)
+    openlibrary_edition_key = models.CharField(max_length=64, blank=True, null=True)
+    google_books_id = models.CharField(max_length=64, blank=True, null=True)
     language = models.CharField(max_length=10, default="en", blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -98,6 +107,12 @@ class Book(models.Model):
                 name="idx_book_isbn_10",
             ),
         ]
+
+    @property
+    def cover_display_url(self) -> str:
+        if self.cover_image:
+            return self.cover_image.url
+        return self.cover_url or ""
 
     def __str__(self):
         return self.title
@@ -305,3 +320,93 @@ class ReadingProgress(models.Model):
 
     def __str__(self):
         return f"{self.book} — {self.logged_on}"
+
+
+class ImportJobKind(models.TextChoices):
+    ISBNS = "isbns", "ISBNs"
+    GOODREADS_CSV = "goodreads_csv", "Goodreads CSV"
+    METADATA_BACKFILL = "metadata_backfill", "Metadata backfill"
+
+
+class ImportJobStatus(models.TextChoices):
+    AWAITING_CONFIRMATION = "awaiting_confirmation", "Awaiting confirmation"
+    PENDING = "pending", "Pending"
+    RUNNING = "running", "Running"
+    COMPLETED = "completed", "Completed"
+    FAILED = "failed", "Failed"
+
+
+def import_job_upload_path(instance, filename):
+    return f"import_jobs/{instance.id}/{filename}"
+
+
+class ImportJob(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="import_jobs",
+    )
+    kind = models.CharField(max_length=20, choices=ImportJobKind.choices)
+    status = models.CharField(
+        max_length=24,
+        choices=ImportJobStatus.choices,
+        default=ImportJobStatus.PENDING,
+    )
+    csv_file = models.FileField(upload_to=import_job_upload_path, blank=True)
+    isbns = models.JSONField(default=list, blank=True)
+    book_ids = models.JSONField(default=list, blank=True)
+    preview = models.JSONField(default=list, blank=True)
+    progress_done = models.PositiveIntegerField(default=0)
+    progress_total = models.PositiveIntegerField(default=0)
+    result = models.JSONField(default=dict, blank=True)
+    error_message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="idx_importjob_status"),
+        ]
+
+    def __str__(self):
+        return f"ImportJob {self.id} ({self.kind}, {self.status})"
+
+    @property
+    def is_terminal(self):
+        return self.status in (
+            ImportJobStatus.COMPLETED,
+            ImportJobStatus.FAILED,
+        )
+
+    @property
+    def preview_stats(self):
+        if not self.preview:
+            return None
+        dupes = sum(1 for r in self.preview if r.get("is_duplicate"))
+        total = len(self.preview)
+        return {"total": total, "new": total - dupes, "duplicates": dupes}
+
+
+class Quote(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="quotes")
+    text = models.TextField()
+    position = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Page number or percent position in the book.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["book"], name="idx_quote_book"),
+        ]
+
+    def __str__(self):
+        return f"Quote on {self.book}"

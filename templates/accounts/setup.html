@@ -1,0 +1,29 @@
+{% extends "accounts/auth_layout.html" %}
+{% block title %}Setup — openbook{% endblock %}
+{% block auth_heading %}Welcome to openbook{% endblock %}
+{% block auth_content %}
+<p class="text-sm text-neutral-600 dark:text-neutral-400 mb-6 text-center">Create your account to get started. This instance supports one operator account.</p>
+<form method="post" action="{% url 'setup' %}">
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+  <div class="mb-4 text-sm text-red-600 dark:text-red-400" role="alert">{{ form.non_field_errors }}</div>
+  {% endif %}
+  <div class="mb-4">
+    <label for="id_email" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Email</label>
+    <input type="email" name="email" id="id_email" required autofocus class="input"
+           value="{{ form.email.value|default:'' }}">
+    {% if form.email.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.email.errors.0 }}</p>{% endif %}
+  </div>
+  <div class="mb-4">
+    <label for="id_password1" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Password</label>
+    {% include "components/password_field.html" with id="id_password1" name="password1" required=True %}
+    {% if form.password1.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.password1.errors.0 }}</p>{% endif %}
+  </div>
+  <div class="mb-6">
+    <label for="id_password2" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Confirm password</label>
+    {% include "components/password_field.html" with id="id_password2" name="password2" required=True %}
+    {% if form.password2.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.password2.errors.0 }}</p>{% endif %}
+  </div>
+  <button type="submit" class="btn-primary w-full">Create account</button>
+</form>
+{% endblock %}

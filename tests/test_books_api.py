@@ -257,7 +257,7 @@ class TestBooksLookup:
         cache.clear()
         url = reverse("book-lookup")
 
-        def side_effect(request_url, params=None):
+        def side_effect(request_url, params=None, **kwargs):
             if "/api/books" in request_url:
                 return _mock_response({})
             return _mock_response(GOOGLE_LOOKUP_RESPONSE)

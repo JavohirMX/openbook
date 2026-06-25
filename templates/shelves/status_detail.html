@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ status_shelf.name }} — openbook{% endblock %}
+{% block content %}
+<a href="{% url 'web:shelf-list' %}" class="link text-sm">&larr; All shelves</a>
+<h1 class="page-title mt-2 mb-6">{{ status_shelf.name }}</h1>
+<p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Books are placed here by reading status.</p>
+
+{% if books %}
+<ul class="surface-list">
+  {% for book in books %}
+  <li>
+    <a href="{% url 'web:book-detail' book.pk %}" class="flex items-center gap-3 px-4 py-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-10" height="h-14" %}
+      <div class="min-w-0">
+        <span class="font-medium text-neutral-950 dark:text-neutral-100 block truncate">{{ book.title }}</span>
+        <span class="text-sm text-neutral-600 dark:text-neutral-400">{% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</span>
+      </div>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+{% include "components/empty_state.html" with title="No books on this shelf" description="Update a book's reading status to add it here." cta_url="/books/" cta_label="Browse books" %}
+{% endif %}
+{% endblock %}

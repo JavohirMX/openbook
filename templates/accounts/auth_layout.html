@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="w-full max-w-sm mx-auto">
+  <div class="text-center mb-10">
+    <h1 class="font-display text-3xl font-bold text-neutral-950 dark:text-neutral-100 tracking-tight">openbook</h1>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mt-2">Your personal book tracker</p>
+  </div>
+  <div class="surface-padded">
+    <h2 class="text-lg font-medium text-neutral-900 dark:text-neutral-100 mb-6 text-center">{% block auth_heading %}{% endblock %}</h2>
+    {% block auth_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

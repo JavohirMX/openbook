@@ -269,7 +269,7 @@ Unmapped Goodreads columns are ignored. Covers/descriptions absent from the CSV 
 |---------|------|
 | **Primary endpoint** | `GET https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data` (returns title, authors, number_of_pages, publishers, publish_date, subjects, cover URLs) |
 | **Fallback endpoint** | If Open Library misses, `GET https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}` (no key); map `volumeInfo` (title, authors, pageCount, publishedDate, categories→genres, imageLinks→cover) |
-| **Cover images** | Open Library: `https://covers.openlibrary.org/b/isbn/{isbn}-{S|M|L}.jpg` (prefer **L**, fall back **M**); Google Books: `imageLinks.thumbnail`. **Hotlink** the resolved URL into `book.cover_url` — no local image download/storage |
+| **Cover images** | Open Library: `https://covers.openlibrary.org/b/isbn/{isbn}-{S|M|L}.jpg` (prefer **L**, fall back **M**); Google Books: `imageLinks.thumbnail`. Store the source URL in `book.cover_url`, **download** the image to `media/covers/{book_id}.{ext}`, and serve same-origin via `GET /media/covers/...`. Fall back to `cover_url` hotlink only if download fails |
 | **User-Agent** | Send a descriptive `User-Agent` (e.g. `openbook/<version> (+https://books.javohirmx.com)`) per Open Library etiquette |
 | **Timeout** | ~5s connect+read timeout; treat timeouts as a miss |
 | **Retry** | At most 1 retry with short backoff; never block the request indefinitely |
@@ -286,7 +286,7 @@ Single-user and self-hosted, but still hardened by default:
 | Area | Requirement |
 |------|-------------|
 | **Transport** | HTTPS only (terminated at Cloudflare/Traefik). Enable HSTS (`SECURE_HSTS_SECONDS`), `SECURE_SSL_REDIRECT`, and `SECURE_PROXY_SSL_HEADER` for the proxy |
-| **Security headers** | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, referrer policy, and a Content-Security-Policy. Because the MVP uses CDNs, allow: `script-src` + `style-src` `https://cdn.tailwindcss.com` and `https://cdn.jsdelivr.net` (Chart.js); `img-src 'self' https://covers.openlibrary.org https://books.google.com https://*.googleusercontent.com data:`; `connect-src 'self'`. Tighten (drop CDNs) when Tailwind moves to a compiled build |
+| **Security headers** | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, referrer policy, and a Content-Security-Policy. Because the MVP uses CDNs, allow: `script-src` + `style-src` `https://cdn.tailwindcss.com` and `https://cdn.jsdelivr.net` (Chart.js); `img-src 'self' data:`; `connect-src 'self'`. Tighten (drop CDNs) when Tailwind moves to a compiled build |
 | **Cookies** | `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SESSION_COOKIE_HTTPONLY`, `SameSite=Lax` |
 | **CSRF** | Web surface uses Django CSRF; set `CSRF_TRUSTED_ORIGINS` to `https://books.javohirmx.com`. HTMX posts include the CSRF token via `hx-headers` |
 | **Login brute-force** | Dedicated throttle scope on `/api/v1/auth/login/` and the web login (e.g. 5/min/IP) → `429` |
@@ -305,7 +305,7 @@ Single-user and self-hosted, but still hardened by default:
 | **Health check** | `GET /healthz` — returns 200 with app + DB connectivity status (no auth); used by uptime monitoring and container healthcheck |
 | **Metrics measurement** | The PRD targets (latency P95, 99.9% uptime) are measured by **external monitoring** hitting `/healthz` + request-timing logs — not self-reported by the app |
 | **Logging** | Structured logs to stdout (captured by Docker). Request/error logging with level via `LOG_LEVEL`. No PII beyond the single account |
-| **Backup/restore** | DB via `pg_dump` / `pg_restore`, run on a **nightly cron** in the homelab (retain ~14 daily snapshots); full logical export also available via `/api/v1/export/?format=json`. Covers are external (hotlinked) URLs, so no media to back up |
+| **Backup/restore** | DB via `pg_dump` / `pg_restore`, run on a **nightly cron** in the homelab (retain ~14 daily snapshots); full logical export also available via `/api/v1/export/?format=json`. Cover images are stored under `media/covers/` on the `openbook_media` volume (~100–200 KB per book) |
 
 ### Environment Variables
 

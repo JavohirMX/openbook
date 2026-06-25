@@ -11,11 +11,12 @@ class BookFilter(filters.FilterSet):
     shelf = filters.NumberFilter(field_name="bookshelf_items__shelf_id")
     genre = filters.CharFilter(method="filter_genre")
     status = filters.CharFilter(field_name="reading_log__status")
+    rating = filters.NumberFilter(field_name="review__rating")
     search = filters.CharFilter(method="filter_search")
 
     class Meta:
         model = Book
-        fields = ["author", "isbn", "shelf", "genre", "status"]
+        fields = ["author", "isbn", "shelf", "genre", "status", "rating"]
 
     def filter_isbn(self, queryset, name, value):
         normalized = normalize_isbn(value)

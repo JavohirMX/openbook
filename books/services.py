@@ -1,5 +1,6 @@
 from django.utils.text import slugify
 
+from books.genre_normalize import METADATA_GENRE_LIMIT
 from books.models import Author, Book, BookAuthor, BookGenre, Genre, ReadingLog, ReadingStatus
 
 
@@ -30,13 +31,46 @@ def get_or_create_genres(names: list[str], source: str) -> list[Genre]:
     return genres
 
 
-def attach_authors_to_book(book: Book, author_names: list[str]) -> None:
-    BookAuthor.objects.filter(book=book).delete()
-    for position, name in enumerate(author_names, start=1):
+def add_authors_to_book(book: Book, author_names: list[str]) -> None:
+    """Attach authors only when the book has none (does not replace existing)."""
+    if BookAuthor.objects.filter(book=book).exists():
+        return
+    seen_author_ids: set[int] = set()
+    position = 0
+    for name in author_names:
         name = name.strip()
         if not name:
             continue
         author = get_or_create_author(name)
+        if author.pk in seen_author_ids:
+            continue
+        seen_author_ids.add(author.pk)
+        position += 1
+        BookAuthor.objects.create(book=book, author=author, position=position)
+
+
+def add_genres_to_book(book: Book, genre_names: list[str], *, source: str) -> None:
+    """Attach genres only when the book has none (does not replace existing)."""
+    if BookGenre.objects.filter(book=book).exists():
+        return
+    genres = get_or_create_genres(genre_names[:METADATA_GENRE_LIMIT], source)
+    for genre in genres:
+        BookGenre.objects.get_or_create(book=book, genre=genre)
+
+
+def attach_authors_to_book(book: Book, author_names: list[str]) -> None:
+    BookAuthor.objects.filter(book=book).delete()
+    seen_author_ids: set[int] = set()
+    position = 0
+    for name in author_names:
+        name = name.strip()
+        if not name:
+            continue
+        author = get_or_create_author(name)
+        if author.pk in seen_author_ids:
+            continue
+        seen_author_ids.add(author.pk)
+        position += 1
         BookAuthor.objects.create(book=book, author=author, position=position)
 
 

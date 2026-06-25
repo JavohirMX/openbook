@@ -1,10 +1,11 @@
 from django.db.models import Q
 from rest_framework import serializers
 
+from books.covers import cover_served_url, download_cover
 from books.exceptions import DuplicateISBNError
 from books.isbn import normalize_and_validate
 from books.metadata import MetadataService
-from books.models import Author, Book, Genre, GenreSource, ReadingLog, ReadingProgress, Review, Shelf, ReadingStatus
+from books.models import Author, Book, Genre, GenreSource, Quote, ReadingLog, ReadingProgress, Review, Shelf, ReadingStatus
 from books.services import (
     attach_authors_to_book,
     attach_genres_to_book,
@@ -17,6 +18,30 @@ class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
         fields = ["id", "name", "sort_name"]
+
+
+class AuthorDetailSerializer(serializers.ModelSerializer):
+    book_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Author
+        fields = ["id", "name", "sort_name", "book_count", "created_at"]
+        read_only_fields = fields
+
+    def get_book_count(self, obj):
+        return getattr(obj, "book_count", obj.book_authors.count())
+
+
+class GenreDetailSerializer(serializers.ModelSerializer):
+    book_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Genre
+        fields = ["id", "name", "slug", "source", "book_count", "created_at"]
+        read_only_fields = ["id", "name", "slug", "source", "created_at"]
+
+    def get_book_count(self, obj):
+        return getattr(obj, "book_count", obj.book_genres.count())
 
 
 class GenreSerializer(serializers.ModelSerializer):
@@ -50,6 +75,13 @@ class BookListSerializer(serializers.ModelSerializer):
             return obj.reading_log.status
         return ReadingStatus.NOT_STARTED
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        served = cover_served_url(instance, self.context.get("request"))
+        if served:
+            data["cover_url"] = served
+        return data
+
 
 class BookSerializer(serializers.ModelSerializer):
     authors = AuthorSerializer(many=True, read_only=True)
@@ -80,6 +112,9 @@ class BookSerializer(serializers.ModelSerializer):
             "publisher",
             "description",
             "cover_url",
+            "openlibrary_work_id",
+            "openlibrary_edition_key",
+            "google_books_id",
             "language",
             "authors",
             "author_names",
@@ -162,11 +197,14 @@ class BookSerializer(serializers.ModelSerializer):
             attach_genres_to_book(book, genres)
 
         create_reading_log_for_book(book)
+        if book.cover_url:
+            download_cover(book)
         return book
 
     def update(self, instance, validated_data):
         author_names = validated_data.pop("author_names", None)
         genre_names = validated_data.pop("genre_names", None)
+        old_cover_url = instance.cover_url
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -178,6 +216,12 @@ class BookSerializer(serializers.ModelSerializer):
             genres = get_or_create_genres(genre_names, source=GenreSource.USER)
             attach_genres_to_book(instance, genres)
 
+        new_cover_url = validated_data.get("cover_url")
+        if new_cover_url and new_cover_url != old_cover_url:
+            download_cover(instance, force=True)
+        elif instance.cover_url and not instance.cover_image:
+            download_cover(instance)
+
         return instance
 
     def to_representation(self, instance):
@@ -187,7 +231,11 @@ class BookSerializer(serializers.ModelSerializer):
             .select_related("reading_log")
             .first()
         ) or instance
-        return super().to_representation(instance)
+        data = super().to_representation(instance)
+        served = cover_served_url(instance, self.context.get("request"))
+        if served:
+            data["cover_url"] = served
+        return data
 
 
 class ShelfSerializer(serializers.ModelSerializer):
@@ -282,3 +330,10 @@ class ReadingLogUpdateSerializer(serializers.Serializer):
     pages_read = serializers.IntegerField(min_value=0, required=False, allow_null=True)
     total_pages = serializers.IntegerField(min_value=0, required=False, allow_null=True)
     note = serializers.CharField(max_length=280, required=False, allow_null=True, allow_blank=True)
+
+
+class QuoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Quote
+        fields = ["id", "text", "position", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]

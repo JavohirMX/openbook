@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ author.name }} — openbook{% endblock %}
+{% block content %}
+<a href="{% url 'web:author-list' %}" class="link text-sm">&larr; All authors</a>
+<h1 class="page-title mt-2 mb-2">{{ author.name }}</h1>
+<p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{{ author.book_count }} book{{ author.book_count|pluralize }} in your library</p>
+
+{% if books %}
+<ul class="surface-list">
+  {% for book in books %}
+  <li class="px-4 py-4">
+    <a href="{% url 'web:book-detail' book.pk %}" class="flex items-center gap-3">
+      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-10" height="h-14" %}
+      <div class="min-w-0">
+        <span class="font-medium text-neutral-950 dark:text-neutral-100 block truncate">{{ book.title }}</span>
+        {% if book.reading_log %}
+        <span class="text-sm text-neutral-500 dark:text-neutral-400">{{ book.reading_log.get_status_display }}</span>
+        {% endif %}
+      </div>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+{% include "components/empty_state.html" with title="No books by this author" %}
+{% endif %}
+{% endblock %}

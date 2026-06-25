@@ -1,0 +1,51 @@
+{% if books %}
+<div class="surface-list">
+  {% for book in books %}
+  <article class="relative px-4 py-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+    <a href="{% url 'web:book-detail' book.pk %}" class="absolute inset-0 z-0" aria-label="View {{ book.title }}"></a>
+    <div class="relative z-10 flex gap-4 items-start pointer-events-none">
+      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-12" height="h-16" %}
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-neutral-950 dark:text-neutral-100">{{ book.title }}</p>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400">{% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</p>
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs pointer-events-auto">
+          {% if book.reading_log %}<span class="badge">{{ book.reading_log.get_status_display }}</span>{% endif %}
+          {% if book.pages %}<span class="text-neutral-600 dark:text-neutral-400">{{ book.pages }} pages</span>{% endif %}
+          {% with genres=book.genres.all %}
+          {% for g in genres|slice:":4" %}
+          <a href="{% url 'web:genre-detail' g.slug %}" class="badge-tag">{{ g.name }}</a>
+          {% endfor %}
+          {% if genres|length > 4 %}
+          <span class="badge text-neutral-500 dark:text-neutral-500">+{{ genres|length|add:"-4" }}</span>
+          {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+      {% if book.review and book.review.rating %}
+      <div class="text-sm shrink-0 flex items-center gap-0.5" aria-label="Rating {{ book.review.rating }} of 5">
+        {% for i in "12345" %}
+        <svg class="w-4 h-4 {% if forloop.counter <= book.review.rating %}text-neutral-950 dark:text-neutral-100{% else %}text-neutral-300 dark:text-neutral-600{% endif %}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav class="flex justify-center gap-2 mt-4" aria-label="Book list pagination">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}&shelf={{ request.GET.shelf }}&genre={{ request.GET.genre }}&status={{ request.GET.status }}&rating={{ request.GET.rating }}&sort={{ request.GET.sort }}"
+     class="btn-secondary px-4 text-sm" hx-get="{% url 'web:book-list' %}?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}&shelf={{ request.GET.shelf }}&genre={{ request.GET.genre }}&status={{ request.GET.status }}&rating={{ request.GET.rating }}&sort={{ request.GET.sort }}" hx-target="#book-list" hx-indicator="#book-list-loading">Previous</a>
+  {% endif %}
+  <span class="min-h-11 px-4 inline-flex items-center text-sm text-neutral-600 dark:text-neutral-400" {% if page_obj.has_other_pages %}aria-current="page"{% endif %}>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}&shelf={{ request.GET.shelf }}&genre={{ request.GET.genre }}&status={{ request.GET.status }}&rating={{ request.GET.rating }}&sort={{ request.GET.sort }}"
+     class="btn-secondary px-4 text-sm" hx-get="{% url 'web:book-list' %}?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}&shelf={{ request.GET.shelf }}&genre={{ request.GET.genre }}&status={{ request.GET.status }}&rating={{ request.GET.rating }}&sort={{ request.GET.sort }}" hx-target="#book-list" hx-indicator="#book-list-loading">Next</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% else %}
+{% include "components/empty_state.html" with title="No books found" description="Try adjusting your filters or add a new book." cta_url="/books/add/" cta_label="Add Book" %}
+{% endif %}

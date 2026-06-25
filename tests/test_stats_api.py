@@ -68,7 +68,33 @@ class TestStatsComputation:
         assert stats["pages_read"] == 50
         assert stats["reading_streak"] == 2
         assert stats["books_by_shelf"] == [
-            {"shelf_id": shelf.pk, "name": "2026 Reads", "count": 1}
+            {
+                "shelf_id": None,
+                "slug": "want-to-read",
+                "name": "Want to Read",
+                "count": 0,
+                "is_status_shelf": True,
+            },
+            {
+                "shelf_id": None,
+                "slug": "currently-reading",
+                "name": "Currently Reading",
+                "count": 1,
+                "is_status_shelf": True,
+            },
+            {
+                "shelf_id": None,
+                "slug": "read",
+                "name": "Read",
+                "count": 1,
+                "is_status_shelf": True,
+            },
+            {
+                "shelf_id": shelf.pk,
+                "name": "2026 Reads",
+                "count": 1,
+                "is_status_shelf": False,
+            },
         ]
         assert any(
             row["genre_id"] == genre_link.genre_id and row["count"] == 1

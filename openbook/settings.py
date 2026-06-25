@@ -48,8 +48,11 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounts.middleware.FirstRunSetupMiddleware",
+    "accounts.middleware_timezone.UserTimezoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "openbook.middleware.ContentSecurityPolicyMiddleware",
 ]
 
 ROOT_URLCONF = "openbook.urls"
@@ -64,6 +67,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "openbook.context_processors.app_version",
             ],
         },
     },
@@ -112,9 +116,14 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 STORAGES = {
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
 }
 
@@ -191,6 +200,24 @@ OPENLIBRARY_BASE_URL = os.environ.get(
 GOOGLE_BOOKS_BASE_URL = os.environ.get(
     "GOOGLE_BOOKS_BASE_URL", "https://www.googleapis.com/books/v1"
 )
+OPENLIBRARY_CONTACT_EMAIL = os.environ.get("OPENLIBRARY_CONTACT_EMAIL", "").strip()
+APP_VERSION = os.environ.get("APP_VERSION", "0.1.0")
+
+METADATA_CONNECT_TIMEOUT = float(os.environ.get("METADATA_CONNECT_TIMEOUT", "5"))
+METADATA_READ_TIMEOUT = float(os.environ.get("METADATA_READ_TIMEOUT", "10"))
+METADATA_RETRY_COUNT = int(os.environ.get("METADATA_RETRY_COUNT", "1"))
+METADATA_RETRY_BACKOFF = float(os.environ.get("METADATA_RETRY_BACKOFF", "1"))
+METADATA_IMPORT_DELAY_SECONDS = float(os.environ.get("METADATA_IMPORT_DELAY_SECONDS", "0"))
+IMPORT_GOODREADS_ENRICH_METADATA = os.environ.get(
+    "IMPORT_GOODREADS_ENRICH_METADATA", "false"
+).lower() in ("true", "1", "yes")
+
+IMPORT_JOB_AUTO_PROCESS = os.environ.get("IMPORT_JOB_AUTO_PROCESS", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+IMPORT_JOB_STALE_MINUTES = int(os.environ.get("IMPORT_JOB_STALE_MINUTES", "30"))
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 
@@ -207,3 +234,19 @@ LOGGING = {
         "level": LOG_LEVEL,
     },
 }
+
+LOGIN_URL = "/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/login/"
+
+# Production security (enabled when DEBUG=False)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True").lower() in ("true", "1", "yes")
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_REFERRER_POLICY = "same-origin"

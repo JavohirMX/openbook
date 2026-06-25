@@ -1,0 +1,44 @@
+{% if results %}
+<p class="text-sm text-neutral-600 dark:text-neutral-400 mb-3">{{ results|length }} result{{ results|length|pluralize }} for "{{ query }}"</p>
+<ul class="space-y-2">
+  {% for result in results %}
+  <li class="surface p-3">
+    <button type="button" class="w-full text-left metadata-pick"
+            data-title="{{ result.title|default:'' }}"
+            data-authors="{{ result.authors|join:', '|default:'' }}"
+            data-pages="{{ result.pages|default:'' }}"
+            data-publisher="{{ result.publisher|default:'' }}"
+            data-cover-url="{{ result.cover_url|default:'' }}"
+            data-published-year="{{ result.published_year|default:'' }}"
+            data-isbn="{% firstof result.isbn_13 result.isbn_10 '' %}">
+      <span class="font-medium text-neutral-950 dark:text-neutral-100">{{ result.title }}</span>
+      {% if result.authors %}
+      <span class="text-sm text-neutral-500 dark:text-neutral-400 block">{{ result.authors|join:", " }}</span>
+      {% endif %}
+      {% if result.isbn_13 or result.isbn_10 %}
+      <span class="text-xs text-neutral-400 dark:text-neutral-500">ISBN: {% firstof result.isbn_13 result.isbn_10 %}</span>
+      {% endif %}
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+<script>
+document.querySelectorAll('.metadata-pick').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var f = document.getElementById('book-form-fields');
+    if (!f) return;
+    var set = function(n, v) { var el = f.querySelector('[name=' + n + ']'); if (el && v) el.value = v; };
+    set('title', btn.dataset.title);
+    set('author_names', btn.dataset.authors);
+    set('pages', btn.dataset.pages);
+    set('publisher', btn.dataset.publisher);
+    set('cover_url', btn.dataset.coverUrl);
+    set('published_year', btn.dataset.publishedYear);
+    var isbn = document.getElementById('isbn-lookup-input');
+    if (isbn && btn.dataset.isbn) isbn.value = btn.dataset.isbn;
+  });
+});
+</script>
+{% elif query %}
+<p class="text-sm text-neutral-500 dark:text-neutral-400">No results for "{{ query }}". Try a different search or enter details manually.</p>
+{% endif %}

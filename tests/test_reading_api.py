@@ -79,7 +79,8 @@ class TestReadingAPI:
         reading_log.refresh_from_db()
         assert reading_log.status == ReadingStatus.READING
         assert reading_log.started_at == today
-        assert ReadingProgress.objects.filter(reading_log=reading_log).count() == 0
+        assert ReadingProgress.objects.filter(reading_log=reading_log).count() == 1
+        assert ReadingProgress.objects.filter(reading_log=reading_log).first().note == "Status: Currently Reading"
 
     def test_reading_to_finished_increments_read_count(self, authenticated_client):
         book = BookFactory(pages=200)

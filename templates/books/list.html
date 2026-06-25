@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Books — openbook{% endblock %}
+{% block content %}
+{% url 'web:book-add' as add_url %}
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-10">
+  <h1 class="page-title">Books</h1>
+  <div class="flex gap-3">
+    <a href="{% url 'web:author-list' %}" class="btn-secondary text-sm">Authors</a>
+    <a href="{{ add_url }}" class="btn-primary">+ Add Book</a>
+  </div>
+</div>
+
+<form method="get" class="surface p-4 mb-4" id="book-filter-form" aria-busy="false"
+      hx-get="{% url 'web:book-list' %}" hx-target="#book-list" hx-trigger="change from:select, input changed delay:300ms from:#search-input" hx-indicator="#book-list-loading"
+      hx-on::before-request="document.getElementById('book-filter-form').setAttribute('aria-busy', 'true')"
+      hx-on::after-request="document.getElementById('book-filter-form').setAttribute('aria-busy', 'false')">
+  <div class="space-y-3">
+    <div>
+      <label for="search-input" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Search</label>
+      <input type="search" name="search" id="search-input" value="{{ request.GET.search }}" placeholder="Search by title, author, or ISBN…" class="input">
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div>
+        <label for="filter-shelf" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Shelf</label>
+        <select name="shelf" id="filter-shelf" class="input">
+          <option value="">All Shelves</option>
+          {% for s in shelves %}<option value="{{ s.pk }}" {% if request.GET.shelf == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="filter-genre" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Genre</label>
+        <select name="genre" id="filter-genre" class="input">
+          <option value="">All Genres</option>
+          {% for g in genres %}<option value="{{ g.pk }}" {% if request.GET.genre == g.pk|stringformat:"s" %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="filter-status" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Status</label>
+        <select name="status" id="filter-status" class="input">
+          <option value="">All Status</option>
+          {% for value, label in reading_statuses %}
+          <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="filter-rating" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Rating</label>
+        <select name="rating" id="filter-rating" class="input">
+          <option value="">All Ratings</option>
+          {% for i in "54321" %}
+          <option value="{{ i }}" {% if request.GET.rating == i %}selected{% endif %}>{{ i }} star{{ i|pluralize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="filter-sort" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Sort</label>
+        <select name="sort" id="filter-sort" class="input">
+          {% for value, label in sort_choices %}
+          <option value="{{ value }}" {% if request.GET.sort == value or not request.GET.sort and value == '-created_at' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div id="book-list-loading" class="htmx-indicator mb-4">
+  {% include "components/book_list_skeleton.html" %}
+</div>
+<div id="book-list" class="htmx-settled">
+  {% include "books/partials/book_rows.html" %}
+</div>
+{% endblock %}

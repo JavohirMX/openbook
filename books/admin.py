@@ -7,6 +7,8 @@ from books.models import (
     BookGenre,
     BookshelfItem,
     Genre,
+    ImportJob,
+    Quote,
     ReadingLog,
     ReadingProgress,
     Review,
@@ -88,6 +90,41 @@ class ReadingLogAdmin(admin.ModelAdmin):
     )
     list_filter = ("status",)
     search_fields = ("book__title",)
+    autocomplete_fields = ("book",)
+
+
+@admin.register(ImportJob)
+class ImportJobAdmin(admin.ModelAdmin):
+    list_display = ("id", "kind", "status", "user", "progress_done", "progress_total", "created_at")
+    list_filter = ("kind", "status")
+    readonly_fields = (
+        "id",
+        "user",
+        "kind",
+        "status",
+        "csv_file",
+        "isbns",
+        "preview",
+        "progress_done",
+        "progress_total",
+        "result",
+        "error_message",
+        "created_at",
+        "started_at",
+        "finished_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Quote)
+class QuoteAdmin(admin.ModelAdmin):
+    list_display = ("book", "position", "created_at")
+    search_fields = ("book__title", "text")
     autocomplete_fields = ("book",)
 
 

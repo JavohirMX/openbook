@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }} — openbook{% endblock %}
+{% block content %}
+<div class="mb-6">
+  <a href="{% url 'web:book-list' %}" class="link text-sm">&larr; Back to books</a>
+</div>
+
+<div class="surface-padded space-y-8">
+  <div class="flex flex-col md:flex-row gap-8">
+    {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-40" height="h-60" extra_class="mx-auto md:mx-0" %}
+    <div class="flex-1 min-w-0">
+      <h1 class="page-title">{{ book.title }}</h1>
+      {% if book.subtitle %}<p class="text-neutral-600 dark:text-neutral-400 mt-2">{{ book.subtitle }}</p>{% endif %}
+      <p class="text-neutral-600 dark:text-neutral-400 mt-2">{% for a in book.authors.all %}<a href="{% url 'web:author-detail' a.pk %}" class="link">{{ a.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</p>
+      <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400 space-y-1">
+        {% if book.isbn_13 %}<p>ISBN-13: {{ book.isbn_13 }}</p>{% endif %}
+        {% if book.pages %}<p>Pages: {{ book.pages }}</p>{% endif %}
+        {% if book.published_year %}<p>Published: {{ book.published_year }}</p>{% endif %}
+        {% if book.publisher %}<p>Publisher: {{ book.publisher }}</p>{% endif %}
+      </div>
+      {% if book.isbn_13 or book.isbn_10 %}
+      <form method="post" action="{% url 'web:book-refresh-metadata' book.pk %}" class="mt-4" data-disable-on-submit>
+        {% csrf_token %}
+        <button type="submit" class="btn-secondary text-sm" data-loading-text="Refreshing…">Refresh metadata</button>
+      </form>
+      {% endif %}
+      <div class="flex flex-wrap gap-2 mt-4">
+        {% for g in book.genres.all %}<a href="{% url 'web:genre-detail' g.slug %}" class="badge-tag hover:bg-neutral-200 dark:hover:bg-neutral-700">{{ g.name }}</a>{% endfor %}
+      </div>
+      {% if provider_links %}
+      <div class="flex flex-wrap gap-3 mt-4">
+        {% for link in provider_links %}
+        <a href="{{ link.url }}" class="link text-sm" target="_blank" rel="noopener noreferrer">{{ link.name }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="reading-section" class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
+    {% include "books/partials/reading_section.html" %}
+  </div>
+
+  <div id="shelves-section" class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
+    {% include "books/partials/shelves_section.html" %}
+  </div>
+
+  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
+    <h3 class="section-title mb-2">My Review</h3>
+    <p id="rating-summary" class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      {% if review_form.instance.rating %}My rating: {{ review_form.instance.rating }} / 5{% else %}No rating yet{% endif %}
+    </p>
+    <form method="post" action="{% url 'web:book-review' book.pk %}" data-disable-on-submit>
+      {% csrf_token %}
+      {% include "components/star_rating.html" with input_id="id_rating" summary_id="rating-summary" %}
+      {{ review_form.rating }}
+      <div class="mt-4">
+        <label for="id_review_text" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Review notes</label>
+        {{ review_form.review_text }}
+      </div>
+      <button type="submit" class="btn-primary mt-4 text-sm" data-loading-text="Saving…">Save Review</button>
+    </form>
+  </div>
+
+  {% if book.description %}
+  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
+    <h3 class="section-title mb-3">Description</h3>
+    <p class="text-neutral-600 dark:text-neutral-400 text-sm whitespace-pre-wrap leading-relaxed max-w-prose">{{ book.description }}</p>
+  </div>
+  {% endif %}
+
+  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
+    {% include "books/partials/reading_timeline.html" %}
+  </div>
+
+  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
+    {% include "books/partials/quotes_section.html" %}
+  </div>
+
+  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8 flex flex-wrap gap-3">
+    <a href="{% url 'web:book-edit' book.pk %}" class="btn-secondary text-sm">Edit</a>
+    <form method="post" action="{% url 'web:book-delete' book.pk %}" onsubmit="return confirm('Move to trash?')">{% csrf_token %}
+      <button type="submit" class="btn-destructive text-sm">Delete</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

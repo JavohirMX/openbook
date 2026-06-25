@@ -6,6 +6,41 @@ from django.utils import timezone
 
 from books.models import Book, Genre, ReadingLog, ReadingProgress, ReadingStatus, Shelf
 
+GENRE_STATS_TOP_N = 12
+
+
+def genres_for_filter():
+    return (
+        Genre.objects.annotate(book_count=Count("book_genres"))
+        .filter(book_count__gt=0)
+        .order_by("-book_count", "name")
+    )
+
+
+def _books_by_genre_for_display():
+    rows = list(
+        Genre.objects.annotate(book_count=Count("book_genres"))
+        .filter(book_count__gt=0)
+        .order_by("-book_count", "name")
+        .values("id", "name", "book_count")
+    )
+    if len(rows) <= GENRE_STATS_TOP_N:
+        return [
+            {"genre_id": row["id"], "name": row["name"], "count": row["book_count"]}
+            for row in rows
+        ]
+
+    top = rows[:GENRE_STATS_TOP_N]
+    other_count = sum(row["book_count"] for row in rows[GENRE_STATS_TOP_N:])
+    result = [
+        {"genre_id": row["id"], "name": row["name"], "count": row["book_count"]}
+        for row in top
+    ]
+    if other_count:
+        result.append({"genre_id": None, "name": "Other", "count": other_count})
+    return result
+from books.status_shelves import get_status_shelves
+
 
 def _compute_reading_streak(activity_dates):
     if not activity_dates:
@@ -32,25 +67,26 @@ def compute_stats():
 
     books_by_shelf = [
         {
+            "shelf_id": None,
+            "slug": shelf.slug,
+            "name": shelf.name,
+            "count": shelf.book_count,
+            "is_status_shelf": True,
+        }
+        for shelf in get_status_shelves()
+    ] + [
+        {
             "shelf_id": row["id"],
             "name": row["name"],
             "count": row["book_count"],
+            "is_status_shelf": False,
         }
         for row in Shelf.objects.annotate(book_count=Count("bookshelf_items"))
         .order_by("sort_order", "name")
         .values("id", "name", "book_count")
     ]
 
-    books_by_genre = [
-        {
-            "genre_id": row["id"],
-            "name": row["name"],
-            "count": row["book_count"],
-        }
-        for row in Genre.objects.annotate(book_count=Count("book_genres"))
-        .order_by("name")
-        .values("id", "name", "book_count")
-    ]
+    books_by_genre = _books_by_genre_for_display()
 
     books_by_status = [
         {"status": row["status"], "count": row["count"]}

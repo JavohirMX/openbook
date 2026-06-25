@@ -1,0 +1,299 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}openbook{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,700&display=swap" rel="stylesheet">
+  <script>
+    (function () {
+      var t = localStorage.getItem('openbook-theme');
+      var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.classList.add('dark');
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+            display: ['Newsreader', 'Georgia', 'serif'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style type="text/tailwindcss">
+    .dark { color-scheme: dark; }
+    @layer components {
+      .surface {
+        @apply bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800;
+      }
+      .surface-padded {
+        @apply bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-4 lg:p-6;
+      }
+      .surface-list {
+        @apply bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-800;
+      }
+      .page-title {
+        @apply font-display text-3xl font-bold tracking-tight text-neutral-950 dark:text-neutral-100;
+      }
+      .section-title {
+        @apply text-lg font-medium text-neutral-900 dark:text-neutral-200;
+      }
+      .btn-primary {
+        @apply inline-flex items-center justify-center min-h-11 px-4 py-2 bg-neutral-950 text-neutral-50 dark:bg-neutral-100 dark:text-neutral-950 text-sm font-medium
+               hover:bg-neutral-800 dark:hover:bg-neutral-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300 focus-visible:ring-offset-2
+               dark:focus-visible:ring-offset-neutral-950 transition-colors duration-150;
+      }
+      .btn-secondary {
+        @apply inline-flex items-center justify-center min-h-11 px-4 py-2 border border-neutral-300 dark:border-neutral-700 text-sm
+               hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300 focus-visible:ring-offset-2
+               dark:focus-visible:ring-offset-neutral-950 transition-colors duration-150;
+      }
+      .btn-destructive {
+        @apply inline-flex items-center justify-center min-h-11 px-4 py-2 border border-red-300 dark:border-red-800 text-sm text-red-700 dark:text-red-400
+               hover:bg-red-50 dark:hover:bg-red-950/30 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 dark:focus-visible:ring-red-400 focus-visible:ring-offset-2
+               dark:focus-visible:ring-offset-neutral-950 transition-colors duration-150;
+      }
+      .input {
+        @apply w-full min-h-11 border border-neutral-300 px-3 py-2 text-neutral-950 placeholder:text-neutral-600
+               dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:placeholder:text-neutral-500
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300 focus-visible:border-neutral-950 dark:focus-visible:border-neutral-300
+               transition-colors duration-150;
+      }
+      .file-input {
+        @apply block w-full text-sm text-neutral-600 dark:text-neutral-400 file:mr-4 file:min-h-11 file:px-4 file:py-2 file:border file:border-neutral-300 dark:file:border-neutral-700
+               file:bg-white dark:file:bg-neutral-900 file:text-sm file:font-medium file:text-neutral-950 dark:file:text-neutral-100
+               file:hover:bg-neutral-100 dark:file:hover:bg-neutral-800 file:cursor-pointer;
+      }
+      .badge {
+        @apply inline-flex items-center bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 text-xs px-2 py-0.5;
+      }
+      .badge-tag {
+        @apply inline-flex items-center shrink-0 max-w-[10rem] truncate leading-tight whitespace-nowrap
+               bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 text-xs px-2 py-0.5
+               hover:bg-neutral-200 dark:hover:bg-neutral-700 hover:text-neutral-950 dark:hover:text-neutral-100
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300;
+      }
+      .link {
+        @apply text-neutral-950 dark:text-neutral-100 hover:underline transition-colors duration-150;
+      }
+      .skeleton {
+        @apply animate-pulse bg-neutral-200 dark:bg-neutral-800;
+      }
+      .nav-item {
+        @apply flex items-center gap-2.5 min-h-11 px-3 py-2 text-sm transition-colors duration-150
+               hover:bg-neutral-100 dark:hover:bg-neutral-800
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300;
+      }
+      .nav-item-active {
+        @apply bg-neutral-100 dark:bg-neutral-800 text-neutral-950 dark:text-neutral-100 font-semibold;
+      }
+      .segmented-control {
+        @apply inline-flex flex-wrap gap-1 border border-neutral-200 dark:border-neutral-800 p-1;
+      }
+      .segmented-option {
+        @apply relative inline-flex items-center justify-center min-h-11 px-3 py-2 text-sm cursor-pointer
+               hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-150;
+      }
+      .segmented-option input {
+        @apply sr-only;
+      }
+      .segmented-option input:checked + span {
+        @apply bg-neutral-950 text-neutral-50 dark:bg-neutral-100 dark:text-neutral-950 font-medium;
+      }
+      .segmented-option span {
+        @apply block px-3 py-1.5;
+      }
+      .star-rating {
+        @apply flex gap-1;
+      }
+      .star-rating button {
+        @apply min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-400 dark:text-neutral-500
+               hover:text-neutral-700 dark:hover:text-neutral-300
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300;
+      }
+      .star-rating button.is-filled {
+        @apply text-neutral-950 dark:text-neutral-100;
+      }
+      .empty-inline {
+        @apply text-sm text-neutral-600 dark:text-neutral-400 py-2;
+      }
+      .metrics-strip {
+        @apply surface flex flex-wrap divide-x divide-neutral-200 dark:divide-neutral-800;
+      }
+      .metrics-strip-item {
+        @apply flex-1 min-w-[8rem] px-4 py-4 text-center sm:text-left;
+      }
+      .htmx-indicator { display: none; }
+      .htmx-request .htmx-indicator,
+      .htmx-request.htmx-indicator { display: block; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #mobile-drawer { transition: none !important; }
+      .skeleton { animation: none; }
+      .btn-primary, .btn-secondary, .btn-destructive { transition: none; }
+      .btn-primary:active, .btn-secondary:active, .btn-destructive:active { transform: none; }
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const token = document.querySelector('meta[name="csrf-token"]');
+      if (token && typeof htmx !== 'undefined') {
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+          evt.detail.headers['X-CSRFToken'] = token.content;
+        });
+      }
+
+      document.querySelectorAll('[data-copy-token]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var text = btn.getAttribute('data-copy-token');
+          if (!text) return;
+          navigator.clipboard.writeText(text).then(function() {
+            var label = btn.querySelector('[data-copy-label]');
+            if (label) {
+              var original = label.textContent;
+              label.textContent = 'Copied!';
+              setTimeout(function() { label.textContent = original; }, 2000);
+            }
+          });
+        });
+      });
+
+      document.querySelectorAll('form[data-disable-on-submit]').forEach(function(form) {
+        form.addEventListener('submit', function() {
+          var btn = form.querySelector('[type="submit"]');
+          if (btn && !btn.disabled) {
+            btn.disabled = true;
+            if (btn.dataset.loadingText) btn.textContent = btn.dataset.loadingText;
+          }
+        });
+      });
+
+      document.body.addEventListener('htmx:afterSwap', function(evt) {
+        var target = evt.detail.target;
+        if (target && target.id && ['reading-section', 'shelves-section', 'book-list'].indexOf(target.id) !== -1) {
+          var live = document.getElementById('htmx-live-region');
+          if (live) live.textContent = 'Content updated.';
+          var focusable = target.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+          if (focusable) focusable.focus();
+        }
+      });
+    });
+
+    function toggleDrawer(forceOpen) {
+      const drawer = document.getElementById('mobile-drawer');
+      const backdrop = document.getElementById('drawer-backdrop');
+      if (!drawer || !backdrop) return;
+      const currentlyClosed = drawer.classList.contains('-translate-x-full');
+      const shouldOpen = forceOpen !== undefined ? forceOpen : currentlyClosed;
+      if (shouldOpen) {
+        drawer.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+      } else {
+        drawer.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+      }
+    }
+
+    function closeDrawer() { toggleDrawer(false); }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeDrawer();
+    });
+
+    function toggleMobileSearch() {
+      var panel = document.getElementById('mobile-search-panel');
+      if (panel) panel.classList.toggle('hidden');
+    }
+  </script>
+</head>
+<body class="h-full bg-neutral-50 text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100 antialiased font-sans">
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-neutral-950 focus:text-neutral-50 dark:focus:bg-neutral-100 dark:focus:text-neutral-950">Skip to main content</a>
+<div id="htmx-live-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+{% if user.is_authenticated %}
+  <div id="drawer-backdrop" class="hidden fixed inset-0 bg-neutral-950/60 z-40 lg:hidden" onclick="closeDrawer()"></div>
+  <div class="flex h-full min-h-screen">
+    <aside id="mobile-drawer" class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 flex flex-col">
+      <div class="flex items-center justify-between p-4 lg:hidden border-b border-neutral-200 dark:border-neutral-800">
+        <span class="font-display text-lg font-bold">openbook</span>
+        <button type="button" class="min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300" onclick="closeDrawer()" aria-label="Close menu">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      {% include "components/sidebar.html" %}
+    </aside>
+    <div class="flex-1 flex flex-col min-w-0">
+      <header class="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 px-4 py-3 flex items-center gap-3 lg:gap-4">
+        <button type="button" class="lg:hidden min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300" onclick="toggleDrawer(true)" aria-label="Open menu">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <form method="get" action="{% url 'web:book-list' %}" class="flex-1 max-w-xl min-w-0 hidden sm:block" role="search">
+          <label for="global-search" class="sr-only">Search books</label>
+          <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+            <input type="search" name="search" id="global-search" value="{{ request.GET.search|default:'' }}" placeholder="Search books…" class="input pl-9 py-2 text-sm">
+          </div>
+        </form>
+        <button type="button" class="sm:hidden min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300" onclick="toggleMobileSearch()" aria-label="Search books" aria-expanded="false" aria-controls="mobile-search-panel">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+        </button>
+        <div class="flex items-center gap-3 text-sm text-neutral-600 dark:text-neutral-400 ml-auto shrink-0">
+          {% include "components/theme_picker.html" %}
+          <span class="hidden md:inline truncate max-w-[12rem]">{{ user.email }}</span>
+          <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+            <button type="submit" class="link min-h-11 inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300 px-2">Logout</button>
+          </form>
+        </div>
+      </header>
+      <div id="mobile-search-panel" class="hidden sm:hidden border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3">
+        <form method="get" action="{% url 'web:book-list' %}" role="search">
+          <label for="mobile-search" class="sr-only">Search books</label>
+          <input type="search" name="search" id="mobile-search" value="{{ request.GET.search|default:'' }}" placeholder="Search books…" class="input text-sm">
+        </form>
+      </div>
+      <main id="main-content" tabindex="-1" class="flex-1 p-4 lg:p-8 overflow-auto">
+        <div class="max-w-6xl mx-auto w-full">
+        {% include "components/messages.html" %}
+{% else %}
+  <main id="main-content" tabindex="-1" class="min-h-screen flex items-center justify-center p-4">
+    <div class="absolute top-4 right-4">
+      {% include "components/theme_picker.html" %}
+    </div>
+    <div class="max-w-6xl mx-auto w-full">
+    {% include "components/messages.html" %}
+{% endif %}
+        {% block content %}{% endblock %}
+{% if user.is_authenticated %}
+        </div>
+      </main>
+      <footer class="border-t border-neutral-200 dark:border-neutral-800 px-4 py-3 text-center text-xs text-neutral-600 dark:text-neutral-400">
+        openbook v{{ app_version }} · open source
+      </footer>
+    </div>
+  </div>
+{% else %}
+    </div>
+  </main>
+{% endif %}
+<script src="{% static 'books/theme.js' %}"></script>
+<script src="{% static 'books/star-rating.js' %}"></script>
+<script src="{% static 'books/forms.js' %}"></script>
+</body>
+</html>

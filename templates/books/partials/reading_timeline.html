@@ -1,0 +1,16 @@
+<h3 class="section-title mb-4">Reading History</h3>
+{% if reading_timeline %}
+<ol class="space-y-3">
+  {% for entry in reading_timeline %}
+  <li class="flex gap-3 text-sm">
+    <time class="text-neutral-500 dark:text-neutral-400 shrink-0 w-24" datetime="{{ entry.logged_on }}">{{ entry.logged_on }}</time>
+    <div>
+      <p class="text-neutral-900 dark:text-neutral-100">{{ entry.label }}</p>
+      {% if entry.note %}<p class="text-neutral-500 dark:text-neutral-400 mt-0.5">{{ entry.note }}</p>{% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="text-sm text-neutral-500 dark:text-neutral-400">No reading events yet. Update status or progress to start a timeline.</p>
+{% endif %}

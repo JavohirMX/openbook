@@ -6,7 +6,7 @@
 2. Clone the repo and run `uv sync --dev`.
 3. Copy `.env.example` to `.env` and adjust as needed.
 4. Run migrations: `uv run python manage.py migrate && uv run python manage.py createcachetable`.
-5. Create a superuser: `uv run python manage.py createsuperuser`.
+5. Start the server and visit `/setup/` to create the operator account (or use `createsuperuser` via CLI).
 
 ## Running tests
 
@@ -15,6 +15,10 @@ uv run pytest
 ```
 
 CI runs the same command against PostgreSQL on every push and pull request.
+
+## Codebase orientation
+
+Read [docs/07-Architecture-and-Code-Map.md](docs/07-Architecture-and-Code-Map.md) before your first PR — it maps Django apps, URL routes, and module responsibilities to the schema and API spec.
 
 ## Code style
 

@@ -66,7 +66,8 @@ Core book entity. Stores bibliographic metadata.
 | published_date | date | NULL | Full publication date — only when precisely known |
 | publisher | varchar(500) | NULL | |
 | description | text | NULL | |
-| cover_url | varchar(2000) | NULL | URL to cover image (often an Open Library cover URL) |
+| cover_url | varchar(2000) | NULL | Source URL for cover image (Open Library, Google Books, or manual) |
+| cover_image | varchar(100) | blank | Local cover file path under `media/covers/` (served same-origin) |
 | language | varchar(10) | NULL, DEFAULT 'en' | ISO 639-1 code |
 | search_vector | tsvector | NULL | PostgreSQL full-text search index |
 | deleted_at | timestamptz | NULL | Soft-delete marker — non-null means "in Trash" (recoverable) |
@@ -317,6 +318,7 @@ class Book(models.Model):
     publisher = models.CharField(max_length=500, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     cover_url = models.URLField(max_length=2000, blank=True, null=True)
+    cover_image = models.FileField(upload_to=cover_upload_path, blank=True)
     language = models.CharField(max_length=10, default='en')
 
     authors = models.ManyToManyField(Author, through='BookAuthor')

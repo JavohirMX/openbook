@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Stats — openbook{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<h1 class="page-title mb-10">Reading Stats</h1>
+
+{% if not stats.total_books %}
+{% include "components/empty_state.html" with title="No stats yet" description="Add books to see your reading statistics." cta_url="/books/add/" cta_label="Add Book" %}
+{% else %}
+
+{% include "components/metrics_strip.html" with items=metrics_items %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-12">
+  <div class="surface p-5">
+    <h2 class="section-title mb-2">By Shelf</h2>
+    <p class="sr-only" id="shelfChart-summary">{% for s in stats.books_by_shelf %}{{ s.name }}: {{ s.count }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    <div class="relative h-64">
+      <canvas id="shelfChart" role="img" aria-labelledby="shelfChart-summary"></canvas>
+    </div>
+    <table class="sr-only">
+      <caption>Books by shelf</caption>
+      <thead><tr><th>Shelf</th><th>Count</th></tr></thead>
+      <tbody>{% for s in stats.books_by_shelf %}<tr><td>{{ s.name }}</td><td>{{ s.count }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="surface p-5">
+    <h2 class="section-title mb-2">By Genre</h2>
+    <p class="sr-only" id="genreChart-summary">{% for g in stats.books_by_genre %}{{ g.name }}: {{ g.count }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    <div class="relative h-64">
+      <canvas id="genreChart" role="img" aria-labelledby="genreChart-summary"></canvas>
+    </div>
+    <table class="sr-only">
+      <caption>Books by genre</caption>
+      <thead><tr><th>Genre</th><th>Count</th></tr></thead>
+      <tbody>{% for g in stats.books_by_genre %}<tr><td>{{ g.name }}</td><td>{{ g.count }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="surface p-5 lg:col-span-2">
+    <h2 class="section-title mb-2">Monthly Reads</h2>
+    <p class="sr-only" id="monthlyChart-summary">{% for m in stats.monthly_reads %}{{ m.month }}: {{ m.count }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    <div class="relative h-48">
+      <canvas id="monthlyChart" role="img" aria-labelledby="monthlyChart-summary"></canvas>
+    </div>
+    <table class="sr-only">
+      <caption>Books finished per month</caption>
+      <thead><tr><th>Month</th><th>Books finished</th></tr></thead>
+      <tbody>{% for m in stats.monthly_reads %}<tr><td>{{ m.month }}</td><td>{{ m.count }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const shelfData = {{ stats_json_shelf|safe }};
+const genreData = {{ stats_json_genre|safe }};
+const monthlyData = {{ stats_json_monthly|safe }};
+
+const CHART_PALETTE_LIGHT = [
+  '#1d4ed8', '#047857', '#b45309', '#be185d', '#6d28d9',
+  '#0e7490', '#4d7c0f', '#c2410c', '#4338ca', '#0f766e',
+];
+const CHART_PALETTE_DARK = [
+  '#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa',
+  '#22d3ee', '#a3e635', '#fb923c', '#818cf8', '#2dd4bf',
+];
+
+function chartPalette() {
+  return document.documentElement.classList.contains('dark') ? CHART_PALETTE_DARK : CHART_PALETTE_LIGHT;
+}
+
+function sliceColors(count) {
+  const palette = chartPalette();
+  return Array.from({ length: count }, (_, i) => palette[i % palette.length]);
+}
+
+function chartThemeColors() {
+  const dark = document.documentElement.classList.contains('dark');
+  return {
+    tick: dark ? '#a3a3a3' : '#737373',
+    grid: dark ? '#404040' : '#d4d4d4',
+    legend: dark ? '#d4d4d4' : '#404040',
+    palette: chartPalette(),
+    segmentBorder: dark ? '#171717' : '#ffffff',
+  };
+}
+
+function doughnutOptions() {
+  const colors = chartThemeColors();
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: colors.legend } },
+    },
+  };
+}
+
+function barOptions() {
+  const colors = chartThemeColors();
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: colors.legend } },
+    },
+    scales: {
+      x: { ticks: { color: colors.tick }, grid: { color: colors.grid } },
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1, color: colors.tick },
+        grid: { color: colors.grid },
+      },
+    },
+  };
+}
+
+function applyChartTheme(chart, type) {
+  const colors = chartThemeColors();
+  if (type === 'bar') {
+    chart.options.plugins.legend.labels.color = colors.legend;
+    chart.options.scales.x.ticks.color = colors.tick;
+    chart.options.scales.x.grid.color = colors.grid;
+    chart.options.scales.y.ticks.color = colors.tick;
+    chart.options.scales.y.grid.color = colors.grid;
+    const count = chart.data.datasets[0].data.length;
+    chart.data.datasets[0].backgroundColor = sliceColors(count);
+  } else {
+    chart.options.plugins.legend.labels.color = colors.legend;
+    const count = chart.data.datasets[0].data.length;
+    chart.data.datasets[0].backgroundColor = sliceColors(count);
+    chart.data.datasets[0].borderColor = colors.segmentBorder;
+    chart.data.datasets[0].borderWidth = 2;
+  }
+  chart.update();
+}
+
+const shelfCounts = shelfData.map(s => s.count);
+const genreCounts = genreData.map(g => g.count);
+const monthlyCounts = monthlyData.map(m => m.count);
+const theme = chartThemeColors();
+
+const charts = [
+  new Chart(document.getElementById('shelfChart'), {
+    type: 'doughnut',
+    data: {
+      labels: shelfData.map(s => s.name),
+      datasets: [{
+        data: shelfCounts,
+        backgroundColor: sliceColors(shelfCounts.length),
+        borderColor: theme.segmentBorder,
+        borderWidth: 2,
+      }]
+    },
+    options: doughnutOptions(),
+  }),
+  new Chart(document.getElementById('genreChart'), {
+    type: 'doughnut',
+    data: {
+      labels: genreData.map(g => g.name),
+      datasets: [{
+        data: genreCounts,
+        backgroundColor: sliceColors(genreCounts.length),
+        borderColor: theme.segmentBorder,
+        borderWidth: 2,
+      }]
+    },
+    options: doughnutOptions(),
+  }),
+  new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+      labels: monthlyData.map(m => m.month),
+      datasets: [{
+        label: 'Books finished',
+        data: monthlyCounts,
+        backgroundColor: sliceColors(monthlyCounts.length),
+      }]
+    },
+    options: barOptions(),
+  }),
+];
+
+if (document.documentElement.classList.contains('dark')) {
+  applyChartTheme(charts[0], 'doughnut');
+  applyChartTheme(charts[1], 'doughnut');
+  applyChartTheme(charts[2], 'bar');
+}
+
+window.addEventListener('themechange', () => {
+  applyChartTheme(charts[0], 'doughnut');
+  applyChartTheme(charts[1], 'doughnut');
+  applyChartTheme(charts[2], 'bar');
+});
+
+window.addEventListener('resize', () => {
+  charts.forEach(c => c.resize());
+});
+</script>
+{% endif %}
+{% endblock %}

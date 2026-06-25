@@ -2,7 +2,7 @@
 
 **Status:** Draft | **Owner:** John | **Last updated:** 2026-06-22
 
-> **Design direction (decided):** simple, clean, content-first — Goodreads-like familiarity with modern, polished UI/UX. Tailwind (CDN for MVP), light theme, indigo accent, Chart.js for stats, slide-in drawer on mobile. See §8 for tokens.
+> **Design direction (decided):** premium editorial monochrome — pleasant near-black dark mode, sharp rectangular surfaces, bold Newsreader headlines, IBM Plex Sans UI. Tailwind CDN, Chart.js for stats, slide-in drawer on mobile. See §8 and `DESIGN.md`.
 
 ---
 
@@ -203,13 +203,12 @@ A fresh instance has one account and no data. The empty experience should guide,
 | Token | Value | Notes |
 |-------|-------|-------|
 | **Delivery** | **Tailwind via CDN** (MVP) | Fast to start; migrate to a purged npm build post-MVP if page weight matters |
-| **Theme** | Light by default | Dark mode is post-MVP (don't block on it) |
-| **Primary/accent colour** | Indigo (`indigo-600`) | Single calm accent for CTAs/links; everything else neutral |
-| **Neutrals** | Tailwind `slate`/`gray` | Backgrounds, borders, text |
-| **Font** | System font stack | Fast, no web-font load; revisit Inter later |
-| **Border radius** | `rounded-md` | Soft, not pill |
-| **Spacing scale** | Tailwind defaults | |
-| **Charts** | **Chart.js** (via CDN) | Stats visualisations |
+| **Theme** | Light / Dark / System | Class-based `dark` on `<html>`; see `DESIGN.md` |
+| **Palette** | Monochrome editorial | `neutral` scale; pleasant near-black dark (`neutral-950` page, `neutral-900` surfaces); no accent colour |
+| **Typography** | Newsreader + IBM Plex Sans | Display titles + UI body; Plex Mono for tokens |
+| **Border radius** | None (`rounded-none`) | Sharp rectangular surfaces |
+| **Spacing scale** | Tailwind defaults + generous section gaps | |
+| **Charts** | **Chart.js** (via CDN) | Monochrome neutral palette |
 | **Icons** | Inline SVG (e.g. Heroicons) | No icon-font dependency |
 
 > **Note:** Using the Tailwind CDN means no build-time purge; acceptable for MVP. If first-paint regresses past the <1.5s target, switch to a compiled/purged Tailwind build.

@@ -1,5 +1,7 @@
 from django.db.models import Count
+from django.http import HttpResponse
 from django.utils import timezone
+import json
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, ValidationError
@@ -10,17 +12,59 @@ from rest_framework.views import APIView
 from books.filters import BookFilter
 from books.isbn import normalize_isbn
 from books.metadata import MetadataService
-from books.models import Book, BookshelfItem, ReadingLog, Review, Shelf
+from books.models import Author, Book, BookshelfItem, Genre, Quote, ReadingLog, Review, Shelf
+from books.provider_links import book_provider_links
 from books.reading_service import update_reading_log
+from books.reading_timeline import build_reading_timeline
 from books.serializers import (
+    AuthorDetailSerializer,
+    AuthorSerializer,
     BookListSerializer,
     BookSerializer,
+    GenreDetailSerializer,
+    GenreSerializer,
+    QuoteSerializer,
     ReadingLogSerializer,
     ReadingLogUpdateSerializer,
     ReviewSerializer,
     ShelfSerializer,
 )
 from books.stats import compute_stats
+
+
+class AuthorViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AuthorSerializer
+
+    def get_queryset(self):
+        from django.db.models import Count
+
+        qs = Author.objects.annotate(book_count=Count("book_authors")).order_by("name")
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            qs = qs.filter(name__icontains=search)
+        return qs
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return AuthorDetailSerializer
+        return AuthorSerializer
+
+
+class GenreViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = GenreSerializer
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        from django.db.models import Count
+
+        return Genre.objects.annotate(book_count=Count("book_genres")).order_by("name")
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return GenreDetailSerializer
+        return GenreSerializer
 
 
 class ShelfViewSet(viewsets.ModelViewSet):
@@ -118,6 +162,15 @@ class BookViewSet(viewsets.ModelViewSet):
         metadata = MetadataService().lookup_isbn(normalized.isbn_13)
         return Response(metadata)
 
+    @action(detail=False, methods=["get"], url_path="search-metadata")
+    def search_metadata(self, request):
+        query = request.query_params.get("q", "").strip()
+        if not query:
+            raise ValidationError({"q": ["This query parameter is required."]})
+        limit = min(int(request.query_params.get("limit", 10)), 25)
+        results = MetadataService().search_books(query, limit=limit)
+        return Response({"results": results})
+
     @action(detail=False, methods=["get"], url_path="trash")
     def trash(self, request):
         queryset = self.filter_queryset(self.get_queryset())
@@ -210,3 +263,120 @@ class BookViewSet(viewsets.ModelViewSet):
         update_reading_log(reading_log, serializer.validated_data)
         reading_log.refresh_from_db()
         return Response(ReadingLogSerializer(reading_log).data)
+
+    @action(detail=True, methods=["get"], url_path="reading/history")
+    def reading_history(self, request, pk=None):
+        book = self.get_object()
+        reading_log = getattr(book, "reading_log", None)
+        timeline = [entry.as_dict() for entry in build_reading_timeline(reading_log)]
+        return Response({"book_id": str(book.pk), "events": timeline})
+
+    @action(detail=True, methods=["get", "post"], url_path="quotes")
+    def quotes(self, request, pk=None):
+        book = self.get_object()
+
+        if request.method == "GET":
+            quotes = book.quotes.all()
+            return Response(QuoteSerializer(quotes, many=True).data)
+
+        serializer = QuoteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        quote = serializer.save(book=book)
+        return Response(QuoteSerializer(quote).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["get"], url_path="provider-links")
+    def provider_links(self, request, pk=None):
+        book = self.get_object()
+        return Response({"links": book_provider_links(book)})
+
+
+class QuoteViewSet(viewsets.ModelViewSet):
+    serializer_class = QuoteSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        return Quote.objects.select_related("book").order_by("-created_at")
+
+
+class ImportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from books.import_jobs import create_csv_preview_job, create_isbn_job, confirm_csv_job, serialize_job
+
+        if "file" in request.FILES:
+            job = create_csv_preview_job(request.user, request.FILES["file"])
+            if request.data.get("confirm") in (True, "true", "1", 1):
+                confirm_csv_job(job)
+        elif "isbns" in request.data:
+            isbns = request.data["isbns"]
+            if isinstance(isbns, str):
+                isbns = [line.strip() for line in isbns.splitlines() if line.strip()]
+            job = create_isbn_job(request.user, isbns)
+        else:
+            raise ValidationError({"detail": "Provide 'isbns' array or CSV 'file'."})
+
+        return Response(serialize_job(job, request=request), status=status.HTTP_202_ACCEPTED)
+
+
+class ImportJobDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from books.import_jobs import confirm_csv_job, serialize_job
+        from books.models import ImportJob, ImportJobStatus
+
+        job = ImportJob.objects.filter(pk=pk, user=request.user).first()
+        if not job:
+            raise NotFound("Import job not found.")
+
+        if (
+            request.query_params.get("confirm") in ("true", "1")
+            and job.status == ImportJobStatus.AWAITING_CONFIRMATION
+        ):
+            confirm_csv_job(job)
+
+        return Response(serialize_job(job, request=request))
+
+
+class ExportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from books.import_export import export_csv, export_json
+
+        fmt = request.query_params.get("format", "json")
+        if fmt == "csv":
+            content = export_csv()
+            response = HttpResponse(content, content_type="text/csv")
+            response["Content-Disposition"] = 'attachment; filename="openbook-export.csv"'
+            return response
+
+        data = export_json()
+        response = HttpResponse(
+            json.dumps(data, indent=2),
+            content_type="application/json",
+        )
+        response["Content-Disposition"] = 'attachment; filename="openbook-export.json"'
+        return response
+
+
+class EmbedView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        from books.embed import embed_payload
+        from accounts.models import UserProfile
+
+        key = request.query_params.get("key", "").strip()
+        kind = request.query_params.get("kind", "currently_reading")
+        if kind not in ("currently_reading", "recently_finished"):
+            raise ValidationError({"kind": ["Must be 'currently_reading' or 'recently_finished'."]})
+
+        profile = UserProfile.objects.filter(embed_enabled=True, embed_key=key).first()
+        if not profile:
+            return Response({"error": "Invalid or disabled embed key."}, status=status.HTTP_403_FORBIDDEN)
+
+        return Response(embed_payload(kind=kind, request=request))

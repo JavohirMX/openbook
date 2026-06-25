@@ -1,0 +1,97 @@
+<div id="job-status" class="surface-padded"
+  {% if not job.is_terminal and job.status != "awaiting_confirmation" %}hx-get="{% url 'web:import-job-status' job.pk %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}
+>
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="section-title">Status: {{ job.get_status_display }}</h2>
+    <div class="flex items-center gap-2">
+      {% if job.status == "running" or job.status == "pending" %}
+      <span class="text-xs text-neutral-600 dark:text-neutral-400" role="status" aria-live="polite">Updating…</span>
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="process_now">
+        <button type="submit" class="btn-secondary text-sm">Process now</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if job.status == "awaiting_confirmation" and job.preview %}
+  <div class="mb-6">
+    {% with stats=job.preview_stats %}
+    <p class="text-sm text-neutral-700 dark:text-neutral-300 mb-4">
+      <span class="font-medium">{{ stats.total }} book{{ stats.total|pluralize }}</span>
+      — {{ stats.new }} new, {{ stats.duplicates }} duplicate{{ stats.duplicates|pluralize }} (skipped)
+    </p>
+    {% endwith %}
+    <div class="border border-neutral-200 dark:border-neutral-800 mb-4 max-h-64 overflow-y-auto">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
+          <tr>
+            <th class="text-left font-medium text-neutral-700 dark:text-neutral-300 px-3 py-2">Title</th>
+            <th class="text-left font-medium text-neutral-700 dark:text-neutral-300 px-3 py-2">Author</th>
+            <th class="text-left font-medium text-neutral-700 dark:text-neutral-300 px-3 py-2">Status</th>
+            <th class="text-left font-medium text-neutral-700 dark:text-neutral-300 px-3 py-2"></th>
+          </tr>
+        </thead>
+        <tbody class="text-neutral-600 dark:text-neutral-400">
+          {% for row in job.preview|slice:":25" %}
+          <tr class="border-b border-neutral-100 dark:border-neutral-800 last:border-0">
+            <td class="px-3 py-2">{{ row.title }}</td>
+            <td class="px-3 py-2">{{ row.author|default:"—" }}</td>
+            <td class="px-3 py-2">{{ row.status_display|default:"—" }}</td>
+            <td class="px-3 py-2">
+              {% if row.is_duplicate %}
+              <span class="badge">Duplicate</span>
+              {% else %}
+              <span class="badge">New</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if job.preview|length > 25 %}
+      <p class="text-xs text-neutral-500 dark:text-neutral-500 px-3 py-2 border-t border-neutral-200 dark:border-neutral-800">… and {{ job.preview|length|add:"-25" }} more</p>
+      {% endif %}
+    </div>
+    <form method="post" data-disable-on-submit>{% csrf_token %}
+      <input type="hidden" name="action" value="confirm_csv">
+      <button type="submit" class="btn-primary text-sm" data-loading-text="Confirming…">Confirm Import</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if job.progress_total %}
+  {% if job.status == "pending" or job.status == "running" %}
+  <div class="mb-4">
+    <div class="flex justify-between text-xs text-neutral-600 dark:text-neutral-400 mb-1">
+      <span>Progress</span>
+      <span>{{ job.progress_done }} / {{ job.progress_total }}</span>
+    </div>
+    {% widthratio job.progress_done job.progress_total 100 as pct %}
+    {% include "components/progress_bar.html" with percent=pct %}
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {% if job.status == "completed" and job.result %}
+  {% include "components/dismissible_notice.html" with variant="success" role="status" extra_class="mb-4" content_template="import_export/partials/import_complete_message.html" %}
+  {% if job.result.errors %}
+  <div class="mb-4">
+    <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Errors (showing up to 20)</h3>
+    <ul class="text-xs text-neutral-600 dark:text-neutral-400 space-y-1 max-h-40 overflow-y-auto">
+      {% for err in job.result.errors %}
+      <li>{{ err }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {% if job.status == "failed" %}
+  {% include "components/dismissible_notice.html" with variant="error" role="alert" content_template="import_export/partials/import_failed_message.html" %}
+  {% endif %}
+
+  {% if job.status == "pending" %}
+  <p class="text-sm text-neutral-600 dark:text-neutral-400" role="status">Waiting for the import worker to pick up this job…</p>
+  {% endif %}
+</div>
