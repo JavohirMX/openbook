@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from accounts.factories import UserFactory
 from books.factories import BookFactory
+from books.models import Book
 
 
 @pytest.fixture
@@ -523,3 +524,115 @@ def test_book_detail_empty_cover_links_to_edit(logged_in_client):
     edit_url = reverse("web:book-edit", kwargs={"pk": book.pk})
     assert f'href="{edit_url}#cover-upload"' in response.content.decode()
     assert "Upload cover" in response.content.decode()
+
+
+def _assert_title_sort_order(response, first_title, second_title):
+    content = response.content.decode()
+    assert content.index(first_title) < content.index(second_title)
+
+
+@pytest.mark.django_db
+def test_shelf_detail_sort_by_title(logged_in_client):
+    from books.factories import BookshelfItemFactory, ShelfFactory
+
+    shelf = ShelfFactory()
+    BookshelfItemFactory(shelf=shelf, book=BookFactory(title="Zebra Shelf Book"))
+    BookshelfItemFactory(shelf=shelf, book=BookFactory(title="Alpha Shelf Book"))
+    response = logged_in_client.get(reverse("web:shelf-detail", kwargs={"pk": shelf.pk}), {"sort": "title"})
+    assert response.status_code == 200
+    assert b'data-book-sort-select' in response.content
+    _assert_title_sort_order(response, "Alpha Shelf Book", "Zebra Shelf Book")
+
+
+@pytest.mark.django_db
+def test_status_shelf_detail_sort_by_title(logged_in_client):
+    from books.models import ReadingStatus
+
+    BookFactory(title="Zebra Status Book")
+    z_log = Book.objects.get(title="Zebra Status Book").reading_log
+    z_log.status = ReadingStatus.NOT_STARTED
+    z_log.save(update_fields=["status"])
+
+    BookFactory(title="Alpha Status Book")
+    a_log = Book.objects.get(title="Alpha Status Book").reading_log
+    a_log.status = ReadingStatus.NOT_STARTED
+    a_log.save(update_fields=["status"])
+
+    response = logged_in_client.get(
+        reverse("web:status-shelf-detail", kwargs={"slug": "want-to-read"}),
+        {"sort": "title"},
+    )
+    assert response.status_code == 200
+    _assert_title_sort_order(response, "Alpha Status Book", "Zebra Status Book")
+
+
+@pytest.mark.django_db
+def test_genre_detail_sort_by_title(logged_in_client):
+    from books.factories import BookGenreFactory, GenreFactory
+
+    genre = GenreFactory(name="Sort Genre", slug="sort-genre")
+    BookGenreFactory(genre=genre, book=BookFactory(title="Zebra Genre Book"))
+    BookGenreFactory(genre=genre, book=BookFactory(title="Alpha Genre Book"))
+    response = logged_in_client.get(reverse("web:genre-detail", args=["sort-genre"]), {"sort": "title"})
+    assert response.status_code == 200
+    _assert_title_sort_order(response, "Alpha Genre Book", "Zebra Genre Book")
+
+
+@pytest.mark.django_db
+def test_series_detail_sort_by_title(logged_in_client):
+    from books.factories import SeriesFactory
+
+    series = SeriesFactory(name="Sort Series", slug="sort-series")
+    BookFactory(title="Zebra Series Book", series=series)
+    BookFactory(title="Alpha Series Book", series=series)
+    response = logged_in_client.get(reverse("web:series-detail", args=["sort-series"]), {"sort": "title"})
+    assert response.status_code == 200
+    _assert_title_sort_order(response, "Alpha Series Book", "Zebra Series Book")
+
+
+@pytest.mark.django_db
+def test_author_detail_sort_by_title(logged_in_client):
+    from books.factories import AuthorFactory, BookAuthorFactory
+
+    author = AuthorFactory(name="Sort Author")
+    BookAuthorFactory(author=author, book=BookFactory(title="Zebra Author Book"))
+    BookAuthorFactory(author=author, book=BookFactory(title="Alpha Author Book"))
+    response = logged_in_client.get(reverse("web:author-detail", kwargs={"pk": author.pk}), {"sort": "title"})
+    assert response.status_code == 200
+    _assert_title_sort_order(response, "Alpha Author Book", "Zebra Author Book")
+
+
+@pytest.mark.django_db
+def test_trash_list_sort_by_title(logged_in_client):
+    from django.utils import timezone
+
+    zebra = BookFactory(title="Zebra Trash Book")
+    alpha = BookFactory(title="Alpha Trash Book")
+    zebra.deleted_at = timezone.now()
+    zebra.save(update_fields=["deleted_at"])
+    alpha.deleted_at = timezone.now()
+    alpha.save(update_fields=["deleted_at"])
+    response = logged_in_client.get(reverse("web:trash-list"), {"sort": "title"})
+    assert response.status_code == 200
+    _assert_title_sort_order(response, "Alpha Trash Book", "Zebra Trash Book")
+
+
+@pytest.mark.django_db
+def test_reading_log_sort_by_title(logged_in_client):
+    from books.models import ReadingStatus
+
+    book_z = BookFactory(title="Zebra Reading Book")
+    log_z = book_z.reading_log
+    log_z.status = ReadingStatus.READING
+    log_z.save(update_fields=["status"])
+
+    book_a = BookFactory(title="Alpha Reading Book")
+    log_a = book_a.reading_log
+    log_a.status = ReadingStatus.READING
+    log_a.save(update_fields=["status"])
+
+    response = logged_in_client.get(reverse("web:reading-log"), {"sort": "title"})
+    assert response.status_code == 200
+    assert b'data-book-sort-page' in response.content
+    _assert_title_sort_order(response, "Alpha Reading Book", "Zebra Reading Book")
+

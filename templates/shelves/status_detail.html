@@ -4,11 +4,14 @@
 <a href="{% url 'web:shelf-list' %}" class="link text-sm">&larr; All shelves</a>
 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2 mb-6">
   <h1 class="page-title">{{ status_shelf.name }}</h1>
-  {% include "components/book_view_toggle.html" %}
+  <div class="flex items-center gap-3">
+    {% include "components/book_sort_select.html" %}
+    {% include "components/book_view_toggle.html" %}
+  </div>
 </div>
 <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Books are placed here by reading status.</p>
 
-<div data-book-view-page>
+<div data-book-view-page data-book-sort-page>
 {% if books %}
 {% include "components/book_collection.html" with books=books show_genres=False %}
 {% else %}

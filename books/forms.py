@@ -197,13 +197,7 @@ class GenreManageForm(forms.Form):
     )
 
 
-SORT_CHOICES = [
-    ("-created_at", "Recently added"),
-    ("title", "Title A–Z"),
-    ("-title", "Title Z–A"),
-    ("author", "Author A–Z"),
-    ("-finished_at", "Recently finished"),
-]
+from books.book_sort import SORT_CHOICES  # noqa: F401 — re-exported for backwards compatibility
 
 
 class BookFilterForm(forms.Form):

@@ -1,3 +1,5 @@
+from books.book_sort import DEFAULT_BOOK_SORT, SORT_CHOICES, resolve_book_sort
+
 BOOK_VIEWS = ("list", "grid", "compact", "table")
 DEFAULT_BOOK_VIEW = "list"
 
@@ -21,8 +23,8 @@ def books_active_filter_count(request) -> int:
     for key in _FILTER_KEYS:
         if request.GET.get(key):
             count += 1
-    sort = request.GET.get("sort", "-created_at")
-    if sort and sort != "-created_at":
+    sort = resolve_book_sort(request)
+    if sort != DEFAULT_BOOK_SORT:
         count += 1
     return count
 
@@ -35,4 +37,6 @@ class BookViewContextMixin:
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["book_view"] = resolve_book_view(self.request)
+        ctx["sort_choices"] = SORT_CHOICES
+        ctx["book_sort"] = resolve_book_sort(self.request)
         return ctx

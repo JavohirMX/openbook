@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.views.generic import TemplateView
 
 from books.book_view import BookViewContextMixin
+from books.book_sort import books_for_page
 from books.models import Book, ReadingLog, ReadingProgress, ReadingStatus
 
 
@@ -34,11 +35,11 @@ class ReadingLogView(BookViewContextMixin, LoginRequiredMixin, TemplateView):
         else:
             next_month_start = month_start.replace(month=month_start.month + 1)
 
-        ctx["currently_reading"] = (
+        ctx["currently_reading"] = books_for_page(
             Book.objects.filter(reading_log__status=ReadingStatus.READING)
             .prefetch_related("authors")
-            .select_related("reading_log", "review")
-            .order_by("-reading_log__updated_at")
+            .select_related("reading_log", "review"),
+            self.request,
         )
 
         ctx["recent_progress"] = (
@@ -49,15 +50,15 @@ class ReadingLogView(BookViewContextMixin, LoginRequiredMixin, TemplateView):
             .order_by("-logged_on", "-created_at")[:25]
         )
 
-        ctx["finished_this_month"] = (
+        ctx["finished_this_month"] = books_for_page(
             Book.objects.filter(
                 reading_log__status=ReadingStatus.FINISHED,
                 reading_log__finished_at__gte=month_start,
                 reading_log__finished_at__lt=next_month_start,
             )
             .prefetch_related("authors")
-            .select_related("reading_log", "review")
-            .order_by("-reading_log__finished_at")
+            .select_related("reading_log", "review"),
+            self.request,
         )
 
         ctx["month_label"] = month_start.strftime("%B %Y")

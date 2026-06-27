@@ -4,11 +4,14 @@
 <a href="{% url 'web:genre-list' %}" class="link text-sm">&larr; All genres</a>
 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2 mb-2">
   <h1 class="page-title">{{ genre.name }}</h1>
-  {% include "components/book_view_toggle.html" %}
+  <div class="flex items-center gap-3">
+    {% include "components/book_sort_select.html" %}
+    {% include "components/book_view_toggle.html" %}
+  </div>
 </div>
 <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{{ genre.book_count }} book{{ genre.book_count|pluralize }}</p>
 
-<div data-book-view-page>
+<div data-book-view-page data-book-sort-page>
 {% if books %}
 {% include "components/book_collection.html" with books=books show_genres=False %}
 {% else %}

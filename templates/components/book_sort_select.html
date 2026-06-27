@@ -1,0 +1,8 @@
+<div class="flex items-center gap-2">
+  <label for="book-sort-select" class="text-sm font-medium text-neutral-700 dark:text-neutral-300 shrink-0">Sort</label>
+  <select id="book-sort-select" data-book-sort-select class="input text-sm py-1.5 min-w-[10rem]">
+    {% for value, label in sort_choices %}
+    <option value="{{ value }}" {% if book_sort == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</div>

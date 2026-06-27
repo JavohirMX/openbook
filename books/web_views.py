@@ -16,6 +16,7 @@ from django.views.generic import CreateView, DetailView, ListView, TemplateView,
 from accounts.models import ApiToken, UserProfile
 
 from accounts.forms import PasswordChangeForm, ProfileForm
+from books.book_sort import apply_book_sort, books_for_page, resolve_book_sort
 from books.book_view import BookViewContextMixin, book_list_paginate_by, books_filters_active, books_active_filter_count, resolve_book_view
 from books.forms import (
     BookFilterForm,
@@ -28,7 +29,6 @@ from books.forms import (
     ReadingGoalForm,
     ReadingUpdateForm,
     ReviewForm,
-    SORT_CHOICES,
     ShelveForm,
     ShelfForm,
 )
@@ -183,7 +183,7 @@ def _filter_books(request):
     series_param = request.GET.get("series")
     status = request.GET.get("status")
     rating = request.GET.get("rating")
-    sort = request.GET.get("sort", "-created_at")
+    sort = resolve_book_sort(request)
     missing = request.GET.get("missing")
 
     if search:
@@ -199,12 +199,12 @@ def _filter_books(request):
             if sort == "-created_at":
                 qs = qs.order_by("-rank", "-created_at")
             else:
-                qs = _apply_book_sort(qs, sort)
+                qs = apply_book_sort(qs, sort)
         else:
             qs = qs.filter(book_text_search_q(search)).distinct()
-            qs = _apply_book_sort(qs, sort)
+            qs = apply_book_sort(qs, sort)
     else:
-        qs = _apply_book_sort(qs, sort)
+        qs = apply_book_sort(qs, sort)
 
     if shelf_id:
         qs = qs.filter(bookshelf_items__shelf_id=shelf_id)
@@ -226,20 +226,6 @@ def _filter_books(request):
         qs = qs.filter(tagged_items__tag__slug=tag_slug)
 
     return qs, form
-
-
-def _apply_book_sort(qs, sort):
-    from django.db.models import Min
-
-    if sort == "title":
-        return qs.order_by("title")
-    if sort == "-title":
-        return qs.order_by("-title")
-    if sort == "author":
-        return qs.annotate(primary_author=Min("authors__name")).order_by("primary_author", "title")
-    if sort == "-finished_at":
-        return qs.order_by("-reading_log__finished_at", "-created_at")
-    return qs.order_by("-created_at")
 
 
 class BookListView(BookViewContextMixin, LoginRequiredMixin, ListView):
@@ -269,7 +255,6 @@ class BookListView(BookViewContextMixin, LoginRequiredMixin, ListView):
 
         ctx["series_list"] = Series.objects.annotate(book_count=Count("books")).order_by("sort_order", "name")
         ctx["reading_statuses"] = ReadingStatus.choices
-        ctx["sort_choices"] = SORT_CHOICES
         ctx["bulk_shelves"] = Shelf.objects.all()
         ctx["filters_active"] = books_filters_active(self.request)
         ctx["active_filter_count"] = books_active_filter_count(self.request)
@@ -648,10 +633,11 @@ class ShelfDetailView(BookViewContextMixin, LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["books"] = (
+        ctx["books"] = books_for_page(
             Book.objects.filter(bookshelf_items__shelf=self.object)
             .prefetch_related("authors")
-            .select_related("reading_log", "review")
+            .select_related("reading_log", "review"),
+            self.request,
         )
         ctx["shelf_form"] = ShelfForm(instance=self.object)
         return ctx
@@ -673,7 +659,7 @@ class AuthorListView(LoginRequiredMixin, ListView):
         return qs
 
 
-class AuthorDetailView(LoginRequiredMixin, DetailView):
+class AuthorDetailView(BookViewContextMixin, LoginRequiredMixin, DetailView):
     model = Author
     template_name = "authors/detail.html"
     context_object_name = "author"
@@ -685,11 +671,11 @@ class AuthorDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["books"] = (
+        ctx["books"] = books_for_page(
             Book.objects.filter(authors=self.object)
             .prefetch_related("authors")
-            .select_related("reading_log", "review")
-            .order_by("title")
+            .select_related("reading_log", "review"),
+            self.request,
         )
         return ctx
 
@@ -740,11 +726,11 @@ class GenreDetailView(BookViewContextMixin, LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["books"] = (
+        ctx["books"] = books_for_page(
             Book.objects.filter(genres=self.object)
             .prefetch_related("authors", "genres")
-            .select_related("reading_log", "review")
-            .order_by("title")
+            .select_related("reading_log", "review"),
+            self.request,
         )
         manage_form = GenreManageForm(initial={"name": self.object.name})
         other_genres = Genre.objects.exclude(pk=self.object.pk).order_by("name")
@@ -828,11 +814,11 @@ class SeriesDetailView(BookViewContextMixin, LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["books"] = (
+        ctx["books"] = books_for_page(
             Book.objects.filter(series=self.object)
             .prefetch_related("authors")
-            .select_related("reading_log", "review", "series")
-            .order_by("series_position", "title")
+            .select_related("reading_log", "review", "series"),
+            self.request,
         )
         return ctx
 
@@ -844,10 +830,11 @@ class StatusShelfDetailView(BookViewContextMixin, LoginRequiredMixin, TemplateVi
         ctx = super().get_context_data(**kwargs)
         status_shelf = get_status_shelf(self.kwargs["slug"])
         ctx["status_shelf"] = status_shelf
-        ctx["books"] = (
+        ctx["books"] = books_for_page(
             Book.objects.filter(reading_log__status=status_shelf.status)
             .prefetch_related("authors")
-            .select_related("reading_log", "review")
+            .select_related("reading_log", "review"),
+            self.request,
         )
         return ctx
 
@@ -1014,7 +1001,8 @@ class TrashListView(BookViewContextMixin, LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return Book.all_objects.filter(deleted_at__isnull=False).prefetch_related("authors").order_by("-deleted_at")
+        qs = Book.all_objects.filter(deleted_at__isnull=False).prefetch_related("authors")
+        return books_for_page(qs, self.request)
 
 
 @login_required

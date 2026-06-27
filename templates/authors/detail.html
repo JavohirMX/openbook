@@ -20,6 +20,10 @@
 {% endif %}
 
 {% if books %}
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4" data-book-sort-page>
+  <h2 class="section-title">Books</h2>
+  {% include "components/book_sort_select.html" %}
+</div>
 <ul class="surface-list">
   {% for book in books %}
   <li class="px-4 py-4">
