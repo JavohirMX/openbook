@@ -151,11 +151,6 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ]
         ctx["reading_goal"] = stats.get("reading_goal")
         ctx["reading_streak"] = stats.get("reading_streak", 0)
-        health = library_health_stats()
-        ctx["library_health"] = health
-        ctx["show_health_nudge"] = (
-            health.get("missing_cover", 0) > 0 or health.get("pending_metadata_matches", 0) > 0
-        )
         ctx["up_next"] = (
             Book.objects.filter(reading_log__status=ReadingStatus.NOT_STARTED)
             .prefetch_related("authors")

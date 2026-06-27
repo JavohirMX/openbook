@@ -90,9 +90,6 @@ def _missing_metadata_filter() -> Q:
         | Q(published_year__isnull=True)
         | Q(description__isnull=True)
         | Q(description="")
-        | Q(subtitle__isnull=True)
-        | Q(subtitle="")
-        | Q(series__isnull=True)
         | (
             (Q(isbn_13__isnull=True) | Q(isbn_13=""))
             & (Q(isbn_10__isnull=True) | Q(isbn_10=""))
@@ -133,10 +130,6 @@ def book_needs_metadata(book: Book) -> bool:
         return True
     if not book.description:
         return True
-    if not book.subtitle:
-        return True
-    if book.series_id is None:
-        return True
     if not has_isbn:
         return True
     return False
@@ -159,10 +152,6 @@ def metadata_missing_fields(book: Book) -> list[str]:
         missing.append("published year")
     if not book.description:
         missing.append("description")
-    if not book.subtitle:
-        missing.append("subtitle")
-    if book.series_id is None:
-        missing.append("series")
     if not (book.isbn_13 or book.isbn_10):
         missing.append("ISBN")
     return missing

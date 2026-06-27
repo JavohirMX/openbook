@@ -232,14 +232,14 @@
     }
   </script>
 </head>
-<body class="h-full bg-neutral-50 text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100 antialiased font-sans"{% if user.is_authenticated %} data-books-url="{% url 'web:book-list' %}" data-stats-url="{% url 'web:stats' %}"{% endif %}>
+<body class="h-full {% if user.is_authenticated %}overflow-hidden{% endif %} bg-neutral-50 text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100 antialiased font-sans"{% if user.is_authenticated %} data-books-url="{% url 'web:book-list' %}" data-stats-url="{% url 'web:stats' %}"{% endif %}>
 <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-neutral-950 focus:text-neutral-50 dark:focus:bg-neutral-100 dark:focus:text-neutral-950">Skip to main content</a>
 <div id="htmx-live-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 {% if user.is_authenticated %}
   <div id="drawer-backdrop" class="hidden fixed inset-0 bg-neutral-950/60 z-40 lg:hidden" onclick="closeDrawer()"></div>
-  <div class="flex h-full min-h-screen">
-    <aside id="mobile-drawer" class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 flex flex-col">
-      <div class="flex items-center justify-between p-4 lg:hidden border-b border-neutral-200 dark:border-neutral-800">
+  <div class="flex h-full">
+    <aside id="mobile-drawer" class="fixed lg:static inset-y-0 left-0 z-50 w-64 shrink-0 h-full bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 flex flex-col">
+      <div class="flex items-center justify-between p-4 lg:hidden border-b border-neutral-200 dark:border-neutral-800 shrink-0">
         <span class="font-display text-lg font-bold">openbook</span>
         <button type="button" class="min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300" onclick="closeDrawer()" aria-label="Close menu">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -247,7 +247,7 @@
       </div>
       {% include "components/sidebar.html" %}
     </aside>
-    <div class="flex-1 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-h-0 min-w-0">
       <header class="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 px-4 py-3 flex items-center gap-3 lg:gap-4">
         <button type="button" class="lg:hidden min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300" onclick="toggleDrawer(true)" aria-label="Open menu">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -282,7 +282,7 @@
         </form>
         <div id="mobile-search-results" class="absolute left-4 right-4 top-full z-50 mt-1"></div>
       </div>
-      <main id="main-content" tabindex="-1" class="flex-1 p-4 lg:p-8 overflow-auto">
+      <main id="main-content" tabindex="-1" class="flex-1 min-h-0 p-4 lg:p-8 overflow-auto">
         <div class="max-w-6xl mx-auto w-full">
 {% else %}
   <main id="main-content" tabindex="-1" class="min-h-screen flex items-center justify-center p-4">
@@ -295,9 +295,6 @@
 {% if user.is_authenticated %}
         </div>
       </main>
-      <footer class="border-t border-neutral-200 dark:border-neutral-800 px-4 py-3 text-center text-xs text-neutral-600 dark:text-neutral-400">
-        openbook v{{ app_version }} · open source
-      </footer>
     </div>
   </div>
 {% else %}

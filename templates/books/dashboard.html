@@ -49,20 +49,6 @@
   {% endif %}
 </section>
 
-{% if show_health_nudge %}
-<section class="mb-12">
-  <div class="surface-padded border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
-    <h2 class="section-title mb-2">Library needs attention</h2>
-    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
-      {% if library_health.missing_cover %}{{ library_health.missing_cover }} missing cover{{ library_health.missing_cover|pluralize }}{% endif %}
-      {% if library_health.missing_cover and library_health.pending_metadata_matches %} · {% endif %}
-      {% if library_health.pending_metadata_matches %}{{ library_health.pending_metadata_matches }} pending metadata match{{ library_health.pending_metadata_matches|pluralize:"es" }}{% endif %}
-    </p>
-    <a href="{% url 'web:library-tools' %}" class="btn-secondary text-sm">Open Library Tools</a>
-  </div>
-</section>
-{% endif %}
-
 {% if up_next %}
 <section class="mb-12">
   <div class="flex items-center justify-between mb-5">

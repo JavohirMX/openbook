@@ -11,10 +11,12 @@ from books.factories import BookAuthorFactory, BookFactory, BookGenreFactory
 from books.import_jobs import create_metadata_backfill_job
 from books.library_maintenance import (
     backfill_metadata,
+    book_needs_metadata,
     books_needing_metadata,
     clear_metadata_cache,
     enrich_book_from_metadata,
     library_health_stats,
+    metadata_missing_fields,
     refresh_book_metadata,
 )
 from books.metadata_match import LookupResult
@@ -33,15 +35,10 @@ def test_books_needing_metadata_queryset():
         publisher="Pub",
         published_year=2020,
         description="A complete bibliographic record for testing.",
-        subtitle="Complete",
     )
     complete.cover_image.save(f"{complete.pk}.jpg", ContentFile(VALID_COVER_JPEG), save=True)
     BookAuthorFactory(book=complete)
     BookGenreFactory(book=complete)
-    from books.factories import SeriesFactory
-
-    complete.series = SeriesFactory(name="Test Series")
-    complete.save(update_fields=["series"])
 
     incomplete = BookFactory(isbn_13="9780143127551", cover_url=None, pages=None)
 
@@ -128,6 +125,45 @@ def test_refresh_book_metadata_uses_interactive_chain():
         mock_lookup.return_value = LookupResult(metadata={}, score=0.0)
         refresh_book_metadata(book)
     mock_lookup.assert_called_once_with(book, import_context=False)
+
+
+@pytest.mark.django_db
+def test_book_complete_without_subtitle_or_series():
+    book = BookFactory(
+        isbn_13="9780143127550",
+        cover_url="https://example.com/cover.jpg",
+        pages=300,
+        publisher="Pub",
+        published_year=2020,
+        description="Complete without optional fields.",
+        subtitle=None,
+    )
+    book.cover_image.save(f"{book.pk}.jpg", ContentFile(VALID_COVER_JPEG), save=True)
+    BookAuthorFactory(book=book)
+    BookGenreFactory(book=book)
+
+    assert book_needs_metadata(book) is False
+    assert metadata_missing_fields(book) == []
+
+
+@pytest.mark.django_db
+def test_metadata_missing_fields_excludes_subtitle_and_series():
+    book = BookFactory(
+        isbn_13="9780143127550",
+        cover_url="https://example.com/cover.jpg",
+        pages=300,
+        publisher="Pub",
+        published_year=2020,
+        description="Only optional fields missing.",
+        subtitle=None,
+    )
+    book.cover_image.save(f"{book.pk}.jpg", ContentFile(VALID_COVER_JPEG), save=True)
+    BookAuthorFactory(book=book)
+    BookGenreFactory(book=book)
+
+    missing = metadata_missing_fields(book)
+    assert "subtitle" not in missing
+    assert "series" not in missing
 
 
 @pytest.mark.django_db

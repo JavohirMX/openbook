@@ -61,6 +61,7 @@ class PasswordChangeForm(DjangoPasswordChangeForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", INPUT_CLASS)
+            field.widget.attrs.pop("autofocus", None)
 
 
 class SetupSuperuserForm(forms.Form):

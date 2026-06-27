@@ -262,6 +262,11 @@ LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
 
+GITHUB_REPO_URL = os.environ.get(
+    "GITHUB_REPO_URL",
+    "https://github.com/JavohirMX/openbook",
+)
+
 # Production security (enabled when DEBUG=False)
 if not DEBUG:
     SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True").lower() in ("true", "1", "yes")

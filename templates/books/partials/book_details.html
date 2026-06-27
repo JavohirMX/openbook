@@ -1,4 +1,10 @@
 <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">Added to library</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">
+      {{ book.created_at|date:"M j, Y" }} ({{ book.created_at|timesince }} ago)
+    </dd>
+  </div>
   {% if book.isbn_13 %}
   <div>
     <dt class="text-neutral-500 dark:text-neutral-400">ISBN-13</dt>

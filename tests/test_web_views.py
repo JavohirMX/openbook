@@ -636,3 +636,14 @@ def test_reading_log_sort_by_title(logged_in_client):
     assert b'data-book-sort-page' in response.content
     _assert_title_sort_order(response, "Alpha Reading Book", "Zebra Reading Book")
 
+
+@pytest.mark.django_db
+def test_book_detail_shows_library_added_date(logged_in_client):
+    book = BookFactory(title="Library Date Book")
+    response = logged_in_client.get(reverse("web:book-detail", kwargs={"pk": book.pk}))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Added to library" in content
+    assert book.created_at.strftime("%b %-d, %Y") in content or book.created_at.strftime("%b %d, %Y").replace("  ", " ") in content
+    assert "ago)" in content
+

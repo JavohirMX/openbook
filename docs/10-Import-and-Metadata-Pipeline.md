@@ -211,7 +211,10 @@ A book is eligible for backfill when it has an ISBN **or** (title + at least one
 - No genres
 - Missing publisher
 - Missing published year
+- Missing description
 - Missing ISBN
+
+Subtitle and series are **optional** for completeness — standalone books without them are not flagged as needing metadata. Backfill and refresh still fill subtitle and series when providers return them.
 
 High-confidence matches are applied automatically; ambiguous matches create a `MetadataMatchProposal` for review on **Library Tools**.
 
