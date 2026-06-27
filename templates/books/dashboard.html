@@ -33,7 +33,55 @@
 <section class="mb-12">
   <h2 class="section-title mb-5">Quick Stats</h2>
   {% include "components/metrics_strip.html" with items=metrics_items %}
+  {% if reading_goal.target_books %}
+  <p class="text-sm text-neutral-600 dark:text-neutral-400 mt-4">
+  {{ reading_goal.year }} goal: <strong>{{ reading_goal.finished_books }} / {{ reading_goal.target_books }}</strong> books
+  {% if reading_goal.books_percent is not None %}({{ reading_goal.books_percent }}%){% endif %}
+  · <a href="{% url 'web:year-review' reading_goal.year %}" class="link">Year in review</a>
+  </p>
+  {% else %}
+  <p class="text-sm text-neutral-600 dark:text-neutral-400 mt-4">
+    <a href="{% url 'web:settings' %}" class="link">Set a {% now "Y" %} reading goal</a>
+  </p>
+  {% endif %}
+  {% if reading_streak %}
+  <p class="text-sm text-neutral-600 dark:text-neutral-400 mt-2">{{ reading_streak }}-day reading streak · <a href="{% url 'web:stats' %}" class="link">View stats</a></p>
+  {% endif %}
 </section>
+
+{% if show_health_nudge %}
+<section class="mb-12">
+  <div class="surface-padded border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+    <h2 class="section-title mb-2">Library needs attention</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-3">
+      {% if library_health.missing_cover %}{{ library_health.missing_cover }} missing cover{{ library_health.missing_cover|pluralize }}{% endif %}
+      {% if library_health.missing_cover and library_health.pending_metadata_matches %} · {% endif %}
+      {% if library_health.pending_metadata_matches %}{{ library_health.pending_metadata_matches }} pending metadata match{{ library_health.pending_metadata_matches|pluralize:"es" }}{% endif %}
+    </p>
+    <a href="{% url 'web:library-tools' %}" class="btn-secondary text-sm">Open Library Tools</a>
+  </div>
+</section>
+{% endif %}
+
+{% if up_next %}
+<section class="mb-12">
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="section-title">Up next</h2>
+    <a href="{% url 'web:book-list' %}?status=not_started" class="link text-sm">See all TBR</a>
+  </div>
+  <div class="surface-list">
+    {% for book in up_next %}
+    <a href="{% url 'web:book-detail' book.pk %}" class="flex items-center gap-4 px-4 py-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-10" height="h-14" %}
+      <div class="min-w-0 flex-1">
+        <p class="font-medium text-neutral-950 dark:text-neutral-100 truncate">{{ book.title }}</p>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 truncate">{% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown{% endfor %}</p>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <section>
   <h2 class="section-title mb-5">Recent Additions</h2>

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Reading Log — openbook{% endblock %}
+{% block content %}
+<h1 class="page-title mb-10">Reading Log</h1>
+
+<section class="mb-12" data-book-view-page>
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+    <h2 class="section-title">Currently Reading</h2>
+    {% include "components/book_view_toggle.html" %}
+  </div>
+  {% if currently_reading %}
+  {% include "components/book_collection.html" with books=currently_reading show_progress=True show_genres=False %}
+  {% else %}
+  <p class="text-sm text-neutral-500 dark:text-neutral-400">No books in progress. <a href="{% url 'web:book-list' %}?status=reading" class="link">Browse your library</a></p>
+  {% endif %}
+</section>
+
+<section class="mb-12 surface-padded">
+  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4">
+    <div>
+      <h2 class="section-title mb-1">Reading journal</h2>
+      <p class="text-sm text-neutral-600 dark:text-neutral-400">Browse progress logged on a specific day.</p>
+    </div>
+    <form method="get" class="flex flex-wrap items-end gap-2">
+      {% if month_param %}<input type="hidden" name="month" value="{{ month_param }}">{% endif %}
+      <div>
+        <label for="journal-date" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Date</label>
+        <input type="date" name="date" id="journal-date" value="{% if journal_date %}{{ journal_date|date:'Y-m-d' }}{% endif %}" class="input text-sm">
+      </div>
+      <button type="submit" class="btn-secondary text-sm">View</button>
+      {% if journal_date %}<a href="{% url 'web:reading-log' %}{% if month_param %}?month={{ month_param }}{% endif %}" class="btn-secondary text-sm">Clear</a>{% endif %}
+    </form>
+  </div>
+  {% if journal_date %}
+    {% if journal_entries %}
+    <ol class="space-y-3">
+      {% for entry in journal_entries %}
+      <li class="flex gap-3 text-sm border-b border-neutral-100 dark:border-neutral-800 pb-3">
+        <div class="min-w-0 flex-1">
+          <a href="{% url 'web:book-detail' entry.book_id %}" class="link font-medium">{{ entry.book.title }}</a>
+          <p class="text-neutral-600 dark:text-neutral-400 mt-0.5">
+            {% if entry.progress_percent is not None %}{{ entry.progress_percent }}%{% endif %}
+            {% if entry.pages_read %} · {{ entry.pages_read }} pages{% endif %}
+            {% if entry.note %} · {{ entry.note }}{% endif %}
+          </p>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="text-sm text-neutral-500 dark:text-neutral-400">No progress logged on {{ journal_date|date:"F j, Y" }}.</p>
+    {% endif %}
+  {% else %}
+  <p class="text-sm text-neutral-500 dark:text-neutral-400">Pick a date to see your reading journal for that day.</p>
+  {% endif %}
+</section>
+
+<section class="mb-12">
+  <h2 class="section-title mb-4">Recent Progress</h2>
+  {% if recent_progress %}
+  <ol class="space-y-3">
+    {% for entry in recent_progress %}
+    <li class="flex gap-3 text-sm border-b border-neutral-100 dark:border-neutral-800 pb-3">
+      <time class="text-neutral-500 dark:text-neutral-400 shrink-0 w-24" datetime="{{ entry.logged_on }}">
+        <a href="{% url 'web:reading-log' %}?date={{ entry.logged_on|date:'Y-m-d' }}" class="link">{{ entry.logged_on|date:"M j" }}</a>
+      </time>
+      <div class="min-w-0 flex-1">
+        <a href="{% url 'web:book-detail' entry.book_id %}" class="link font-medium">{{ entry.book.title }}</a>
+        <p class="text-neutral-600 dark:text-neutral-400 mt-0.5">
+          {% if entry.progress_percent is not None %}{{ entry.progress_percent }}%{% endif %}
+          {% if entry.pages_read %} · {{ entry.pages_read }} pages{% endif %}
+          {% if entry.note %} · {{ entry.note }}{% endif %}
+        </p>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="text-sm text-neutral-500 dark:text-neutral-400">No progress logged yet.</p>
+  {% endif %}
+</section>
+
+<section data-book-view-page>
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+    <h2 class="section-title">Finished in {{ month_label }}</h2>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'web:reading-log' %}?month={{ prev_month_param }}{% if journal_date %}&date={{ journal_date|date:'Y-m-d' }}{% endif %}" class="btn-secondary text-sm">← Prev</a>
+      {% if show_next_month %}
+      <a href="{% url 'web:reading-log' %}?month={{ next_month_param }}{% if journal_date %}&date={{ journal_date|date:'Y-m-d' }}{% endif %}" class="btn-secondary text-sm">Next →</a>
+      {% endif %}
+      {% include "components/book_view_toggle.html" %}
+    </div>
+  </div>
+  {% if finished_this_month %}
+  {% include "components/book_collection.html" with books=finished_this_month show_finished_date=True show_status=False show_rating=False show_genres=False %}
+  {% else %}
+  <p class="text-sm text-neutral-500 dark:text-neutral-400">No books finished this month yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

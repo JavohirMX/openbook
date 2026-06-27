@@ -1,0 +1,8 @@
+<div class="flex gap-2 shrink-0">
+  <form method="post" action="{% url 'web:trash-restore' book.pk %}">{% csrf_token %}
+    <button type="submit" class="btn-secondary text-sm px-4">Restore</button>
+  </form>
+  <form method="post" action="{% url 'web:trash-delete' book.pk %}" onsubmit="return confirm('Permanently delete this book?')">{% csrf_token %}
+    <button type="submit" class="btn-destructive text-sm px-4">Delete forever</button>
+  </form>
+</div>

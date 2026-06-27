@@ -6,8 +6,28 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import DatabaseError
 
+from books.covers import resolve_openlibrary_cover_url
 from books.genre_normalize import normalize_metadata_genres
 from books.isbn import normalize_isbn
+from books.metadata_cache_keys import metadata_search_cache_key
+from books.metadata_chain import (
+    needs_archive_cover,
+    needs_google_books,
+    needs_hardcover,
+    needs_isbndb,
+    needs_more_search_results,
+    needs_wikidata,
+)
+from books.metadata_merge import merge_metadata_best_per_field
+from books.metadata_openlibrary import hydrate_candidate
+from books.metadata_archive import lookup_archive_cover
+from books.metadata_hardcover import (
+    hardcover_enabled,
+    lookup_isbn_hardcover,
+    search_hardcover,
+)
+from books.metadata_isbndb import isbndb_enabled, lookup_isbn_isbndb
+from books.metadata_wikidata import lookup_isbn_wikidata, search_wikidata, wikidata_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +107,117 @@ def _retry_backoff() -> float:
     return float(getattr(settings, "METADATA_RETRY_BACKOFF", 1))
 
 
+def metadata_lookup_strategy() -> str:
+    return getattr(settings, "METADATA_LOOKUP_STRATEGY", "chain").lower()
+
+
+def _google_books_params(base: dict | None = None) -> dict:
+    params = dict(base or {})
+    api_key = getattr(settings, "GOOGLE_BOOKS_API_KEY", "").strip()
+    if api_key:
+        params["key"] = api_key
+    return params
+
+
+def _provider_payload(result: dict | None) -> dict:
+    if not result:
+        return {}
+    return dict(result)
+
+
+def _merge_provider_result(merged: dict, result: dict | None, *, source: str) -> dict:
+    payload = _provider_payload(result)
+    if not payload:
+        return merged
+    payload.setdefault("source", source)
+    if merged:
+        return merge_metadata_best_per_field(merged, payload)
+    return merge_metadata_best_per_field(payload)
+
+
 class MetadataService:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": metadata_user_agent()})
+
+    def _cache_get_fn(self, key: str, default=None):
+        return _cache_get(key, default)
+
+    def _cache_set_fn(self, key: str, value, timeout: int) -> None:
+        _cache_set(key, value, timeout)
+
+    def _get_wikidata(self, url, params=None, *, import_context: bool = False):
+        return self._get(url, params=params, import_context=import_context)
+
+    def _post_hardcover(self, url, json=None, *, import_context: bool = False):
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": getattr(settings, "HARDCOVER_API_TOKEN", "").strip(),
+        }
+        log = logger.info if import_context else logger.warning
+        retries = _retry_count()
+        for attempt in range(retries + 1):
+            try:
+                response = self.session.post(
+                    url,
+                    json=json,
+                    headers=headers,
+                    timeout=_metadata_timeout(),
+                )
+                if response.status_code == 429:
+                    retry_after = self._retry_after_seconds(response)
+                    log(
+                        "Hardcover rate limited (attempt %s), retrying in %ss",
+                        attempt + 1,
+                        retry_after,
+                    )
+                    if attempt < retries:
+                        time.sleep(retry_after)
+                        continue
+                    return None
+                response.raise_for_status()
+                return response
+            except requests.RequestException as exc:
+                log("Hardcover request failed (attempt %s): %s", attempt + 1, exc)
+                if attempt < retries:
+                    time.sleep(_retry_backoff())
+                    continue
+                return None
+        return None
+
+    def _get_isbndb(self, url, headers=None, *, import_context: bool = False):
+        log = logger.info if import_context else logger.warning
+        try:
+            response = self.session.get(
+                url,
+                headers=headers,
+                timeout=_metadata_timeout(),
+            )
+            response.raise_for_status()
+            return response
+        except requests.RequestException as exc:
+            log("ISBNdb request failed: %s", exc)
+            return None
+
+    def _post_isbndb(self, url, json=None, headers=None, *, import_context: bool = False):
+        log = logger.info if import_context else logger.warning
+        try:
+            response = self.session.post(
+                url,
+                json=json,
+                headers=headers,
+                timeout=_metadata_timeout(),
+            )
+            response.raise_for_status()
+            return response
+        except requests.RequestException as exc:
+            log("ISBNdb batch request failed: %s", exc)
+            return None
+
+    def _get_openlibrary_json(self, url, params=None, *, import_context: bool = False):
+        if params:
+            return self._get(url, params=params, import_context=import_context)
+        return self._get(url, import_context=import_context)
 
     def lookup_isbn(self, isbn: str, *, import_context: bool = False) -> dict:
         normalized = normalize_isbn(isbn)
@@ -103,21 +230,162 @@ class MetadataService:
             return cached
 
         isbn_13 = normalized.isbn_13
-        ol_result = self._lookup_open_library(isbn_13, import_context=import_context)
-        if ol_result and ol_result.get("title"):
-            _cache_set(cache_key, ol_result, CACHE_TTL)
-            return ol_result
+        merged, ol_result, gb_result, wd_result, gb_attempted, wd_attempted = (
+            self._lookup_isbn_parallel(isbn_13, import_context=import_context)
+            if metadata_lookup_strategy() == "parallel"
+            else self._lookup_isbn_chain(isbn_13, import_context=import_context)
+        )
 
-        gb_result = self._lookup_google_books(isbn_13, import_context=import_context)
-        if gb_result and gb_result.get("title"):
-            _cache_set(cache_key, gb_result, CACHE_TTL)
-            return gb_result
+        if merged and (merged.get("openlibrary_work_id") or merged.get("openlibrary_edition_key")):
+            merged = hydrate_candidate(
+                merged,
+                self.session,
+                get_fn=self._get_openlibrary_json,
+                import_context=import_context,
+            )
 
-        if ol_result is None and gb_result is None:
+        if merged.get("title"):
+            _cache_set(cache_key, merged, CACHE_TTL)
+            return merged
+
+        attempted: list[dict | None] = [ol_result]
+        if gb_attempted:
+            attempted.append(gb_result)
+        if wd_attempted:
+            attempted.append(wd_result)
+        if any(result is None for result in attempted):
             return {}
 
         _cache_set(cache_key, {}, NEGATIVE_CACHE_TTL)
         return {}
+
+    def _lookup_isbn_chain(
+        self,
+        isbn_13: str,
+        *,
+        import_context: bool,
+    ) -> tuple[dict, dict | None, dict | None, dict | None, bool, bool]:
+        ol_result = self._lookup_open_library(isbn_13, import_context=import_context)
+        merged = _merge_provider_result({}, ol_result, source="open_library")
+
+        gb_attempted = False
+        gb_result = None
+        if needs_google_books(merged, import_context=import_context):
+            gb_attempted = True
+            gb_result = self._lookup_google_books(isbn_13, import_context=import_context)
+            merged = _merge_provider_result(merged, gb_result, source="google_books")
+
+        wd_attempted = False
+        wd_result = None
+        if wikidata_enabled() and needs_wikidata(merged, import_context=import_context):
+            wd_attempted = True
+            wd_result = lookup_isbn_wikidata(
+                isbn_13,
+                self.session,
+                get_fn=self._get_wikidata,
+                cache_get=self._cache_get_fn,
+                cache_set=self._cache_set_fn,
+                import_context=import_context,
+            )
+            merged = _merge_provider_result(merged, wd_result, source="wikidata")
+
+        if hardcover_enabled() and needs_hardcover(merged, import_context=import_context):
+            hc_result = lookup_isbn_hardcover(
+                isbn_13,
+                self.session,
+                post_fn=self._post_hardcover,
+                import_context=import_context,
+            )
+            merged = _merge_provider_result(merged, hc_result, source="hardcover")
+
+        if isbndb_enabled() and needs_isbndb(merged, import_context=import_context):
+            idb_result = lookup_isbn_isbndb(
+                isbn_13,
+                self.session,
+                get_fn=self._get_isbndb,
+                import_context=import_context,
+            )
+            merged = _merge_provider_result(merged, idb_result, source="isbndb")
+
+        if needs_archive_cover(merged):
+            archive_result = lookup_archive_cover(
+                isbn_13,
+                self.session,
+                get_fn=self._get,
+                import_context=import_context,
+            )
+            merged = _merge_provider_result(merged, archive_result, source="archive_org")
+
+        return merged, ol_result, gb_result, wd_result, gb_attempted, wd_attempted
+
+    def _lookup_isbn_parallel(
+        self,
+        isbn_13: str,
+        *,
+        import_context: bool,
+    ) -> tuple[dict, dict | None, dict | None, dict | None, bool, bool]:
+        candidates: list[dict] = []
+
+        ol_result = self._lookup_open_library(isbn_13, import_context=import_context)
+        if ol_result is not None:
+            payload = _provider_payload(ol_result)
+            if payload:
+                candidates.append(payload)
+
+        gb_result = self._lookup_google_books(isbn_13, import_context=import_context)
+        if gb_result is not None:
+            payload = _provider_payload(gb_result)
+            if payload:
+                candidates.append(payload)
+
+        wd_result = None
+        wd_attempted = False
+        if wikidata_enabled():
+            wd_attempted = True
+            wd_result = lookup_isbn_wikidata(
+                isbn_13,
+                self.session,
+                get_fn=self._get_wikidata,
+                cache_get=self._cache_get_fn,
+                cache_set=self._cache_set_fn,
+                import_context=import_context,
+            )
+            if wd_result:
+                candidates.append(_provider_payload(wd_result))
+
+        if hardcover_enabled():
+            hc_result = lookup_isbn_hardcover(
+                isbn_13,
+                self.session,
+                post_fn=self._post_hardcover,
+                import_context=import_context,
+            )
+            if hc_result:
+                candidates.append(_provider_payload(hc_result))
+
+        if isbndb_enabled():
+            idb_result = lookup_isbn_isbndb(
+                isbn_13,
+                self.session,
+                get_fn=self._get_isbndb,
+                import_context=import_context,
+            )
+            if idb_result:
+                candidates.append(_provider_payload(idb_result))
+
+        non_empty = [c for c in candidates if c]
+        merged = merge_metadata_best_per_field(*non_empty) if non_empty else {}
+
+        if needs_archive_cover(merged):
+            archive_result = lookup_archive_cover(
+                isbn_13,
+                self.session,
+                get_fn=self._get,
+                import_context=import_context,
+            )
+            merged = _merge_provider_result(merged, archive_result, source="archive_org")
+
+        return merged, ol_result, gb_result, wd_result, True, wd_attempted
 
     def _get(
         self,
@@ -196,7 +464,11 @@ class MetadataService:
         raw_genres = [s.get("name", "") for s in subjects if s.get("name")]
         genres = normalize_metadata_genres(raw_genres)
 
-        cover_url = self._open_library_cover(isbn_13, book_data.get("cover"))
+        cover_url = self._open_library_cover(
+            isbn_13,
+            book_data.get("cover"),
+            edition_key=book_data.get("key"),
+        )
 
         return {
             "title": book_data.get("title"),
@@ -208,6 +480,7 @@ class MetadataService:
             "subjects": raw_genres,
             "openlibrary_edition_key": book_data.get("key"),
             "openlibrary_work_id": self._open_library_work_id(book_data),
+            "source": "open_library",
         }
 
     def _open_library_work_id(self, book_data: dict) -> str | None:
@@ -219,13 +492,24 @@ class MetadataService:
             return str(work)
         return None
 
-    def _open_library_cover(self, isbn_13: str, cover: dict | None) -> str | None:
+    def _open_library_cover(
+        self,
+        isbn_13: str,
+        cover: dict | None,
+        *,
+        edition_key: str | None = None,
+    ) -> str | None:
+        extra_urls: list[str] = []
         if cover:
             if cover.get("large"):
-                return cover["large"]
+                extra_urls.append(cover["large"])
             if cover.get("medium"):
-                return cover["medium"]
-        return f"https://covers.openlibrary.org/b/isbn/{isbn_13}-L.jpg"
+                extra_urls.append(cover["medium"])
+        return resolve_openlibrary_cover_url(
+            edition_olid=edition_key,
+            isbn_13=isbn_13,
+            extra_urls=extra_urls,
+        )
 
     def _lookup_google_books(
         self,
@@ -236,7 +520,7 @@ class MetadataService:
         url = f"{settings.GOOGLE_BOOKS_BASE_URL.rstrip('/')}/volumes"
         response = self._get(
             url,
-            params={"q": f"isbn:{isbn_13}"},
+            params=_google_books_params({"q": f"isbn:{isbn_13}"}),
             import_context=import_context,
         )
         if response is None:
@@ -251,16 +535,25 @@ class MetadataService:
         image_links = volume_info.get("imageLinks", {})
         raw_categories = volume_info.get("categories", [])
         genres = normalize_metadata_genres(raw_categories)
+        published_date = volume_info.get("publishedDate") or ""
+        published_year = None
+        if published_date:
+            year_match = published_date[:4]
+            if year_match.isdigit():
+                published_year = int(year_match)
 
         return {
             "title": volume_info.get("title"),
             "authors": volume_info.get("authors", []),
             "pages": volume_info.get("pageCount"),
             "publisher": volume_info.get("publisher"),
+            "published_year": published_year,
+            "description": volume_info.get("description"),
             "cover_url": image_links.get("thumbnail"),
             "genres": genres,
             "subjects": raw_categories,
             "google_books_id": items[0].get("id"),
+            "source": "google_books",
         }
 
     def search_books(self, query: str, *, limit: int = 10, import_context: bool = False) -> list[dict]:
@@ -268,17 +561,62 @@ class MetadataService:
         if not query:
             return []
 
-        cache_key = f"metadata:search:{query.lower()[:200]}:{limit}"
+        cache_key = metadata_search_cache_key("search", query, limit)
         cached = _cache_get(cache_key)
         if cached is not None:
             return cached
 
         results = self._search_open_library(query, limit=limit, import_context=import_context)
-        if not results:
-            results = self._search_google_books(query, limit=limit, import_context=import_context)
+
+        if metadata_lookup_strategy() == "parallel" or needs_more_search_results(results, limit):
+            gb_results = self._search_google_books(query, limit=limit, import_context=import_context)
+            results = self._merge_search_results(results, gb_results)
+
+        if wikidata_enabled() and (
+            metadata_lookup_strategy() == "parallel" or needs_more_search_results(results, limit)
+        ):
+            wd_results = search_wikidata(
+                query,
+                self.session,
+                limit=limit,
+                get_fn=self._get_wikidata,
+                cache_get=self._cache_get_fn,
+                cache_set=self._cache_set_fn,
+                import_context=import_context,
+            )
+            results = self._merge_search_results(results, wd_results)
+
+        if hardcover_enabled() and (
+            metadata_lookup_strategy() == "parallel" or needs_more_search_results(results, limit)
+        ):
+            hc_results = search_hardcover(
+                query,
+                self.session,
+                limit=limit,
+                post_fn=self._post_hardcover,
+                import_context=import_context,
+            )
+            results = self._merge_search_results(results, hc_results)
 
         _cache_set(cache_key, results, CACHE_TTL if results else NEGATIVE_CACHE_TTL)
         return results
+
+    def _merge_search_results(self, primary: list[dict], secondary: list[dict]) -> list[dict]:
+        if not secondary:
+            return primary
+        seen: set[str] = set()
+        merged: list[dict] = []
+        for item in primary + secondary:
+            key = item.get("isbn_13") or item.get("wikidata_id") or item.get("google_books_id")
+            if not key:
+                title = (item.get("title") or "").lower()
+                authors = "|".join(item.get("authors") or [])
+                key = f"{title}|{authors}"
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+        return merged
 
     def _search_open_library(
         self,
@@ -303,9 +641,13 @@ class MetadataService:
             isbn_13 = next((i for i in isbns if len(str(i)) == 13), None)
             isbn_10 = next((i for i in isbns if len(str(i)) == 10), None)
             cover_id = doc.get("cover_i")
-            cover_url = f"https://covers.openlibrary.org/b/id/{cover_id}-M.jpg" if cover_id else None
-            if not cover_url and isbn_13:
-                cover_url = f"https://covers.openlibrary.org/b/isbn/{isbn_13}-M.jpg"
+            edition_key = doc.get("key")
+            cover_url = resolve_openlibrary_cover_url(
+                cover_id=cover_id if cover_id and cover_id > 0 else None,
+                edition_olid=edition_key,
+                isbn_13=isbn_13,
+                isbn_10=isbn_10,
+            )
             results.append(
                 {
                     "title": doc.get("title"),
@@ -332,7 +674,7 @@ class MetadataService:
         url = f"{settings.GOOGLE_BOOKS_BASE_URL.rstrip('/')}/volumes"
         response = self._get(
             url,
-            params={"q": query, "maxResults": limit},
+            params=_google_books_params({"q": query, "maxResults": limit}),
             import_context=import_context,
         )
         if response is None:

@@ -17,10 +17,9 @@ def user(db):
 
 @pytest.fixture
 def api_token(user):
-    from rest_framework.authtoken.models import Token
+    from accounts.models import ApiToken
 
-    token, _ = Token.objects.get_or_create(user=user)
-    return token
+    return ApiToken.create_for_user(user, label="Test")
 
 
 @pytest.fixture

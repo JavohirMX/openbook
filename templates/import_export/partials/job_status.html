@@ -4,11 +4,20 @@
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <h2 class="section-title">Status: {{ job.get_status_display }}</h2>
     <div class="flex items-center gap-2">
-      {% if job.status == "running" or job.status == "pending" %}
-      <span class="text-xs text-neutral-600 dark:text-neutral-400" role="status" aria-live="polite">Updating…</span>
+      {% if job.status == "running" %}
+      <span class="text-xs text-neutral-600 dark:text-neutral-400" role="status" aria-live="polite">Running…</span>
+      {% endif %}
+      {% if job.status == "pending" %}
       <form method="post">{% csrf_token %}
         <input type="hidden" name="action" value="process_now">
         <button type="submit" class="btn-secondary text-sm">Process now</button>
+      </form>
+      {% endif %}
+      {% if job.is_cancellable %}
+      <form method="post">{% csrf_token %}
+        {% if cancel_next %}<input type="hidden" name="next" value="{{ cancel_next }}">{% endif %}
+        <input type="hidden" name="action" value="cancel">
+        <button type="submit" class="btn-destructive text-sm" onclick="return confirm('Cancel this job? The current book or row will finish, then processing will stop.')">Cancel</button>
       </form>
       {% endif %}
     </div>
@@ -67,6 +76,11 @@
       <span>Progress</span>
       <span>{{ job.progress_done }} / {{ job.progress_total }}</span>
     </div>
+    {% if job.status == "running" and job.progress_done < job.progress_total %}
+    <p class="text-xs text-neutral-500 dark:text-neutral-500 mb-1" role="status">
+      Working on book {{ job.progress_done|add:1 }} of {{ job.progress_total }}…
+    </p>
+    {% endif %}
     {% widthratio job.progress_done job.progress_total 100 as pct %}
     {% include "components/progress_bar.html" with percent=pct %}
   </div>
@@ -74,7 +88,11 @@
   {% endif %}
 
   {% if job.status == "completed" and job.result %}
+  {% if job.kind == "metadata_backfill" %}
+  {% include "components/dismissible_notice.html" with variant="success" role="status" extra_class="mb-4" content_template="import_export/partials/backfill_complete_message.html" %}
+  {% else %}
   {% include "components/dismissible_notice.html" with variant="success" role="status" extra_class="mb-4" content_template="import_export/partials/import_complete_message.html" %}
+  {% endif %}
   {% if job.result.errors %}
   <div class="mb-4">
     <h3 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Errors (showing up to 20)</h3>
@@ -84,6 +102,23 @@
       {% endfor %}
     </ul>
   </div>
+  {% endif %}
+  {% endif %}
+
+  {% if job.status == "cancelled" %}
+  <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4" role="status">
+    This job was cancelled{% if job.progress_done %} after {{ job.progress_done }} of {{ job.progress_total }} item{{ job.progress_total|pluralize }}{% endif %}.
+  </p>
+  {% if job.result %}
+  {% if job.kind == "metadata_backfill" %}
+  <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+    Updated {{ job.result.updated|default:0 }}, skipped {{ job.result.skipped|default:0 }}, pending review {{ job.result.pending_review|default:0 }}, failed {{ job.result.failed|default:0 }}.
+  </p>
+  {% else %}
+  <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+    Added {{ job.result.added|default:0 }}, skipped {{ job.result.skipped|default:0 }}, failed {{ job.result.failed|default:0 }}.
+  </p>
+  {% endif %}
   {% endif %}
   {% endif %}
 

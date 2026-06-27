@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ year }} in Review — openbook{% endblock %}
+{% block content %}
+<a href="{% url 'web:stats' %}" class="link text-sm">&larr; Stats</a>
+<div class="flex flex-wrap items-start justify-between gap-4 mt-2 mb-10">
+  <h1 class="page-title">{{ year }} in Review</h1>
+  <button type="button" onclick="window.print()" class="btn-secondary text-sm no-print">Print summary</button>
+</div>
+
+<div id="year-review-card">
+{% include "components/metrics_strip.html" with items=metrics_items %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-12">
+  <div class="surface-padded">
+    <h2 class="section-title mb-2">Summary</h2>
+    <ul class="text-sm text-neutral-600 dark:text-neutral-400 space-y-2">
+      <li><strong class="text-neutral-900 dark:text-neutral-100">{{ review.books_finished }}</strong> books finished</li>
+      <li><strong class="text-neutral-900 dark:text-neutral-100">{{ review.pages_read }}</strong> pages logged</li>
+      {% if review.average_rating %}<li>Average rating: <strong class="text-neutral-900 dark:text-neutral-100">{{ review.average_rating }}</strong> / 5</li>{% endif %}
+      {% if review.goal.target_books %}<li>Reading goal: {{ review.goal.finished_books }} / {{ review.goal.target_books }} books</li>{% endif %}
+      {% if review.longest_book %}<li>Longest: <strong class="text-neutral-900 dark:text-neutral-100">{{ review.longest_book.title }}</strong> ({{ review.longest_pages }} pages)</li>{% endif %}
+      {% if review.first_finished %}<li>First finished: {{ review.first_finished|date:"M j" }}</li>{% endif %}
+      {% if review.last_finished %}<li>Last finished: {{ review.last_finished|date:"M j" }}</li>{% endif %}
+    </ul>
+  </div>
+  <div class="surface-padded">
+    <h2 class="section-title mb-2">Top Genres</h2>
+    {% if review.top_genres %}
+    <ul class="space-y-2">
+      {% for g in review.top_genres %}
+      <li class="flex justify-between text-sm"><span>{{ g.name }}</span><span class="badge">{{ g.count }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-neutral-500 dark:text-neutral-400">No genre data for this year.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if review.cover_books %}
+<section class="mt-12">
+  <h2 class="section-title mb-4">Books you finished</h2>
+  <div class="flex flex-wrap gap-3">
+    {% for book in review.cover_books %}
+    <a href="{% url 'web:book-detail' book.pk %}" class="shrink-0">
+      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-16" height="h-24" %}
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+</div>
+
+<style>
+@media print {
+  .no-print, nav, aside, header, footer, .btn-secondary { display: none !important; }
+  main { padding: 0 !important; }
+}
+</style>
+{% endblock %}

@@ -165,7 +165,7 @@ def _parse_throttle_rates() -> dict[str, str]:
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
+        "accounts.authentication.ApiTokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_FILTER_BACKENDS": [
@@ -200,6 +200,7 @@ OPENLIBRARY_BASE_URL = os.environ.get(
 GOOGLE_BOOKS_BASE_URL = os.environ.get(
     "GOOGLE_BOOKS_BASE_URL", "https://www.googleapis.com/books/v1"
 )
+GOOGLE_BOOKS_API_KEY = os.environ.get("GOOGLE_BOOKS_API_KEY", "").strip()
 OPENLIBRARY_CONTACT_EMAIL = os.environ.get("OPENLIBRARY_CONTACT_EMAIL", "").strip()
 APP_VERSION = os.environ.get("APP_VERSION", "0.1.0")
 
@@ -209,8 +210,28 @@ METADATA_RETRY_COUNT = int(os.environ.get("METADATA_RETRY_COUNT", "1"))
 METADATA_RETRY_BACKOFF = float(os.environ.get("METADATA_RETRY_BACKOFF", "1"))
 METADATA_IMPORT_DELAY_SECONDS = float(os.environ.get("METADATA_IMPORT_DELAY_SECONDS", "0"))
 IMPORT_GOODREADS_ENRICH_METADATA = os.environ.get(
-    "IMPORT_GOODREADS_ENRICH_METADATA", "false"
+    "IMPORT_GOODREADS_ENRICH_METADATA", "true"
 ).lower() in ("true", "1", "yes")
+METADATA_WIKIDATA_ENABLED = os.environ.get("METADATA_WIKIDATA_ENABLED", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+METADATA_WIKIDATA_DELAY_SECONDS = float(os.environ.get("METADATA_WIKIDATA_DELAY_SECONDS", "1.0"))
+METADATA_AUTO_APPLY_THRESHOLD = float(os.environ.get("METADATA_AUTO_APPLY_THRESHOLD", "0.82"))
+METADATA_REVIEW_GAP_THRESHOLD = float(os.environ.get("METADATA_REVIEW_GAP_THRESHOLD", "0.08"))
+METADATA_LOOKUP_STRATEGY = os.environ.get("METADATA_LOOKUP_STRATEGY", "chain").lower()
+METADATA_HARDCOVER_ENABLED = os.environ.get("METADATA_HARDCOVER_ENABLED", "true").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+HARDCOVER_API_TOKEN = os.environ.get("HARDCOVER_API_TOKEN", "").strip()
+HARDCOVER_API_URL = os.environ.get(
+    "HARDCOVER_API_URL", "https://api.hardcover.app/v1/graphql"
+)
+ISBNDB_API_KEY = os.environ.get("ISBNDB_API_KEY", "").strip()
+ISBNDB_API_URL = os.environ.get("ISBNDB_API_URL", "https://api2.isbndb.com")
 
 IMPORT_JOB_AUTO_PROCESS = os.environ.get("IMPORT_JOB_AUTO_PROCESS", "true").lower() in (
     "true",
@@ -218,6 +239,8 @@ IMPORT_JOB_AUTO_PROCESS = os.environ.get("IMPORT_JOB_AUTO_PROCESS", "true").lowe
     "yes",
 )
 IMPORT_JOB_STALE_MINUTES = int(os.environ.get("IMPORT_JOB_STALE_MINUTES", "30"))
+IMPORT_JOB_DEBUG_STALE_MINUTES = int(os.environ.get("IMPORT_JOB_DEBUG_STALE_MINUTES", "5"))
+IMPORT_JOB_CANCEL_FINALIZE_SECONDS = int(os.environ.get("IMPORT_JOB_CANCEL_FINALIZE_SECONDS", "120"))
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 

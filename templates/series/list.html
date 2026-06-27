@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Series — openbook{% endblock %}
+{% block content %}
+<h1 class="page-title mb-6">Series</h1>
+
+<form method="get" class="mb-6 max-w-md">
+  <label for="series-search" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Search</label>
+  <input type="search" name="search" id="series-search" value="{{ request.GET.search }}" placeholder="Series name…" class="input">
+</form>
+
+{% if series_list %}
+<div class="surface-list">
+  {% for series in series_list %}
+  <a href="{% url 'web:series-detail' series.slug %}" class="flex items-center justify-between px-4 py-4 min-h-[3.5rem] hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+    <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ series.name }}</span>
+    <span class="badge">{{ series.book_count }} book{{ series.book_count|pluralize }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% if page_obj.has_other_pages %}
+<nav class="flex justify-center gap-2 mt-6" aria-label="Series pagination">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}" class="btn-secondary text-sm">Previous</a>{% endif %}
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}" class="btn-secondary text-sm">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+{% include "components/empty_state.html" with title="No series yet" description="Series appear when you assign books to a series." %}
+{% endif %}
+{% endblock %}

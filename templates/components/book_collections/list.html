@@ -1,0 +1,70 @@
+<div class="surface-list">
+  {% if selectable %}
+  <div class="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-3 text-sm">
+    <label class="inline-flex items-center gap-2 pointer-events-auto">
+      <input type="checkbox" id="select-all-books" class="rounded border-neutral-300">
+      <span class="text-neutral-600 dark:text-neutral-400">Select all on page</span>
+    </label>
+  </div>
+  {% endif %}
+  {% for book in books %}
+  <article class="relative px-4 py-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+    {% if selectable %}
+    <div class="absolute left-4 top-1/2 -translate-y-1/2 z-20 pointer-events-auto">
+      <input type="checkbox" class="book-select rounded border-neutral-300" value="{{ book.pk }}" aria-label="Select {{ book.title }}">
+    </div>
+    {% endif %}
+    {% if not actions_template %}
+    <a href="{% url 'web:book-detail' book.pk %}" class="absolute inset-0 z-0 {% if selectable %}pl-10{% endif %}" aria-label="View {{ book.title }}"></a>
+    {% endif %}
+    <div class="relative z-10 flex gap-4 items-start pointer-events-none {% if selectable %}pl-8{% endif %}">
+      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-12" height="h-16" %}
+      <div class="flex-1 min-w-0">
+        {% if actions_template %}
+        <a href="{% url 'web:book-detail' book.pk %}" class="pointer-events-auto block">
+          {% include "components/book_row/title_author.html" with book=book show_series_position=show_series_position %}
+        </a>
+        {% else %}
+        {% include "components/book_row/title_author.html" with book=book show_series_position=show_series_position %}
+        {% endif %}
+        {% if show_progress and book.reading_log %}
+        <div class="mt-2 max-w-xs pointer-events-none">
+          {% include "components/progress_bar.html" with percent=book.reading_log.progress_percent|default:0 %}
+          <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{{ book.reading_log.progress_percent|default:0 }}%{% if book.reading_log.current_page and book.pages %} · page {{ book.reading_log.current_page }} of {{ book.pages }}{% endif %}</p>
+        </div>
+        {% endif %}
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-xs pointer-events-auto">
+          {% if show_status != False %}
+          {% if book.reading_log %}<span class="badge">{{ book.reading_log.get_status_display }}</span>{% endif %}
+          {% endif %}
+          {% if show_finished_date and book.reading_log.finished_at %}
+          <time class="text-neutral-600 dark:text-neutral-400" datetime="{{ book.reading_log.finished_at|date:'Y-m-d' }}">{{ book.reading_log.finished_at|date:"M j" }}</time>
+          {% endif %}
+          {% if show_deleted_date and book.deleted_at %}
+          <span class="text-neutral-600 dark:text-neutral-400">Deleted {{ book.deleted_at|date:"M j, Y" }}</span>
+          {% endif %}
+          {% if show_pages != False and book.pages %}<span class="text-neutral-600 dark:text-neutral-400">{{ book.pages }} pages</span>{% endif %}
+          {% if show_genres != False %}
+          {% with genres=book.genres.all %}
+          {% for g in genres|slice:":4" %}
+          <a href="{% url 'web:genre-detail' g.slug %}" class="badge-tag">{{ g.name }}</a>
+          {% endfor %}
+          {% if genres|length > 4 %}
+          <span class="badge text-neutral-500 dark:text-neutral-500">+{{ genres|length|add:"-4" }}</span>
+          {% endif %}
+          {% endwith %}
+          {% endif %}
+        </div>
+        {% if actions_template %}
+        <div class="mt-3 pointer-events-auto">
+          {% include actions_template with book=book %}
+        </div>
+        {% endif %}
+      </div>
+      {% if show_rating != False %}
+      {% include "components/book_row/rating.html" with book=book %}
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>

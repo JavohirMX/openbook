@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ series.name }} — openbook{% endblock %}
+{% block content %}
+<a href="{% url 'web:book-list' %}?series={{ series.slug }}" class="link text-sm">&larr; Books in this series</a>
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2 mb-2">
+  <h1 class="page-title">{{ series.name }}</h1>
+  {% include "components/book_view_toggle.html" %}
+</div>
+<p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{{ series.book_count }} book{{ series.book_count|pluralize }}</p>
+
+<div data-book-view-page>
+{% if books %}
+{% include "components/book_collection.html" with books=books show_series_position=True show_genres=False %}
+{% else %}
+{% include "components/empty_state.html" with title="No books in this series" %}
+{% endif %}
+</div>
+{% endblock %}

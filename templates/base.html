@@ -141,6 +141,14 @@
       .htmx-indicator { display: none; }
       .htmx-request .htmx-indicator,
       .htmx-request.htmx-indicator { display: block; }
+      .disclosure-section summary::-webkit-details-marker,
+      #reading-progress-details summary::-webkit-details-marker {
+        display: none;
+      }
+      .disclosure-section summary::marker,
+      #reading-progress-details summary::marker {
+        content: '';
+      }
     }
     @media (prefers-reduced-motion: reduce) {
       #mobile-drawer { transition: none !important; }
@@ -186,7 +194,7 @@
 
       document.body.addEventListener('htmx:afterSwap', function(evt) {
         var target = evt.detail.target;
-        if (target && target.id && ['reading-section', 'shelves-section', 'book-list'].indexOf(target.id) !== -1) {
+        if (target && target.id && ['your-reading-section', 'reading-section', 'shelves-section', 'book-list'].indexOf(target.id) !== -1) {
           var live = document.getElementById('htmx-live-region');
           if (live) live.textContent = 'Content updated.';
           var focusable = target.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
@@ -224,7 +232,7 @@
     }
   </script>
 </head>
-<body class="h-full bg-neutral-50 text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100 antialiased font-sans">
+<body class="h-full bg-neutral-50 text-neutral-950 dark:bg-neutral-950 dark:text-neutral-100 antialiased font-sans"{% if user.is_authenticated %} data-books-url="{% url 'web:book-list' %}" data-stats-url="{% url 'web:stats' %}"{% endif %}>
 <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:px-4 focus:py-2 focus:bg-neutral-950 focus:text-neutral-50 dark:focus:bg-neutral-100 dark:focus:text-neutral-950">Skip to main content</a>
 <div id="htmx-live-region" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 {% if user.is_authenticated %}
@@ -244,13 +252,17 @@
         <button type="button" class="lg:hidden min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300" onclick="toggleDrawer(true)" aria-label="Open menu">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
-        <form method="get" action="{% url 'web:book-list' %}" class="flex-1 max-w-xl min-w-0 hidden sm:block" role="search">
-          <label for="global-search" class="sr-only">Search books</label>
-          <div class="relative">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-            <input type="search" name="search" id="global-search" value="{{ request.GET.search|default:'' }}" placeholder="Search books…" class="input pl-9 py-2 text-sm">
-          </div>
-        </form>
+        <div class="flex-1 max-w-xl min-w-0 hidden sm:block relative" role="search">
+          <form method="get" action="{% url 'web:book-list' %}"
+                hx-get="{% url 'web:header-search' %}" hx-trigger="input changed delay:300ms from:#global-search" hx-target="#header-search-results" hx-include="#global-search">
+            <label for="global-search" class="sr-only">Search books</label>
+            <div class="relative">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+              <input type="search" name="search" id="global-search" value="{{ request.GET.search|default:'' }}" placeholder="Search title, author, quotes, reviews…" class="input pl-9 py-2 text-sm" autocomplete="off">
+            </div>
+          </form>
+          <div id="header-search-results" class="absolute left-0 right-0 top-full z-50 mt-1"></div>
+        </div>
         <button type="button" class="sm:hidden min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300" onclick="toggleMobileSearch()" aria-label="Search books" aria-expanded="false" aria-controls="mobile-search-panel">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
         </button>
@@ -262,22 +274,22 @@
           </form>
         </div>
       </header>
-      <div id="mobile-search-panel" class="hidden sm:hidden border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3">
-        <form method="get" action="{% url 'web:book-list' %}" role="search">
+      <div id="mobile-search-panel" class="hidden sm:hidden border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-4 py-3 relative">
+        <form method="get" action="{% url 'web:book-list' %}" role="search"
+              hx-get="{% url 'web:header-search' %}" hx-trigger="input changed delay:300ms from:#mobile-search" hx-target="#mobile-search-results" hx-include="#mobile-search">
           <label for="mobile-search" class="sr-only">Search books</label>
-          <input type="search" name="search" id="mobile-search" value="{{ request.GET.search|default:'' }}" placeholder="Search books…" class="input text-sm">
+          <input type="search" name="search" id="mobile-search" value="{{ request.GET.search|default:'' }}" placeholder="Search title, author, quotes, reviews…" class="input text-sm" autocomplete="off">
         </form>
+        <div id="mobile-search-results" class="absolute left-4 right-4 top-full z-50 mt-1"></div>
       </div>
       <main id="main-content" tabindex="-1" class="flex-1 p-4 lg:p-8 overflow-auto">
         <div class="max-w-6xl mx-auto w-full">
-        {% include "components/messages.html" %}
 {% else %}
   <main id="main-content" tabindex="-1" class="min-h-screen flex items-center justify-center p-4">
     <div class="absolute top-4 right-4">
       {% include "components/theme_picker.html" %}
     </div>
     <div class="max-w-6xl mx-auto w-full">
-    {% include "components/messages.html" %}
 {% endif %}
         {% block content %}{% endblock %}
 {% if user.is_authenticated %}
@@ -293,7 +305,10 @@
   </main>
 {% endif %}
 <script src="{% static 'books/theme.js' %}"></script>
+<script src="{% static 'books/book_view.js' %}"></script>
 <script src="{% static 'books/star-rating.js' %}"></script>
 <script src="{% static 'books/forms.js' %}"></script>
+{% if user.is_authenticated %}<script src="{% static 'books/shortcuts.js' %}"></script>{% endif %}
+{% include "components/toast.html" %}
 </body>
 </html>

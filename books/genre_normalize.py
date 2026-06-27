@@ -215,6 +215,19 @@ _GENRE_PRIORITY: dict[str, int] = {
 }
 
 
+def normalize_user_genre_name(name: str) -> str:
+    """Normalize a user-entered genre name, using canonical casing when recognized."""
+    cleaned = name.strip()
+    if not cleaned:
+        return ""
+    normalized = _normalize_label(cleaned)
+    if normalized in _CANONICAL_BY_LOWER:
+        return _CANONICAL_BY_LOWER[normalized]
+    if normalized in GENRE_ALIASES:
+        return GENRE_ALIASES[normalized]
+    return cleaned
+
+
 def normalize_metadata_genres(raw_labels: list[str], *, max_genres: int = METADATA_GENRE_LIMIT) -> list[str]:
     """Return curated canonical genre names from provider subject/category labels."""
     scores: dict[str, int] = {}

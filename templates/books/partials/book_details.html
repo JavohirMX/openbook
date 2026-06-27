@@ -1,0 +1,89 @@
+<dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+  {% if book.isbn_13 %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">ISBN-13</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ book.isbn_13 }}</dd>
+  </div>
+  {% endif %}
+  {% if book.isbn_10 %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">ISBN-10</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ book.isbn_10 }}</dd>
+  </div>
+  {% endif %}
+  {% if book.pages %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">Pages</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ book.pages }}</dd>
+  </div>
+  {% endif %}
+  {% if book.published_date %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">Published</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ book.published_date|date:"M j, Y" }}</dd>
+  </div>
+  {% elif book.published_year %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">Published</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ book.published_year }}</dd>
+  </div>
+  {% endif %}
+  {% if book.publisher %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">Publisher</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ book.publisher }}</dd>
+  </div>
+  {% endif %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">Format</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ book.get_format_display }}{% if book.owned %} · Owned{% endif %}</dd>
+  </div>
+  {% if book.narrator %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">Narrator</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ book.narrator }}</dd>
+  </div>
+  {% endif %}
+  {% if reading_log and reading_log.read_count > 0 %}
+  <div>
+    <dt class="text-neutral-500 dark:text-neutral-400">Times read</dt>
+    <dd class="text-neutral-900 dark:text-neutral-100 mt-0.5">{{ reading_log.read_count }}</dd>
+  </div>
+  {% endif %}
+</dl>
+{% if provider_links %}
+<div class="flex flex-wrap gap-3 mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+  {% for link in provider_links %}
+  <a href="{{ link.url }}" class="link text-sm" target="_blank" rel="noopener noreferrer">{{ link.name }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+{% if metadata_missing_fields %}
+<div class="mt-4 p-3 border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 text-sm" role="status">
+  <p class="font-medium text-amber-900 dark:text-amber-200">Incomplete metadata</p>
+  <p class="text-amber-800 dark:text-amber-300 mt-1">Missing: {{ metadata_missing_fields|join:", " }}.</p>
+</div>
+{% endif %}
+{% if book.metadata_source_summary or book.last_metadata_refresh_at %}
+<p class="text-xs text-neutral-500 dark:text-neutral-500 mt-3">
+  {% if book.metadata_source_summary %}Sources: {{ book.metadata_source_summary }}{% endif %}
+  {% if book.last_metadata_refresh_at %}{% if book.metadata_source_summary %} · {% endif %}Last refreshed {{ book.last_metadata_refresh_at|date:"M j, Y g:i A" }}{% endif %}
+</p>
+{% endif %}
+<form method="post" action="{% url 'web:book-refresh-metadata' book.pk %}" class="mt-4" data-disable-on-submit>
+  {% csrf_token %}
+  <button type="submit" class="btn-secondary text-sm" data-loading-text="Refreshing…">Refresh metadata</button>
+</form>
+<form method="post" action="{% url 'web:book-metadata-locks' book.pk %}" class="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+  {% csrf_token %}
+  <h3 class="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-2">Lock fields from metadata refresh</h3>
+  <div class="flex flex-wrap gap-3 text-sm mb-3">
+    {% for field in metadata_lock_fields %}
+    <label class="inline-flex items-center gap-2">
+      <input type="checkbox" name="lock_{{ field }}" {% if field in metadata_locked_fields %}checked{% endif %} class="rounded border-neutral-300 dark:border-neutral-600">
+      {{ field }}
+    </label>
+    {% endfor %}
+  </div>
+  <button type="submit" class="btn-secondary text-sm">Save locks</button>
+</form>

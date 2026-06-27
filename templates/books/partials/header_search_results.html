@@ -1,0 +1,18 @@
+{% if books %}
+<ul class="border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm max-h-80 overflow-y-auto" role="listbox" aria-label="Search results">
+  {% for book in books %}
+  <li role="option">
+    <a href="{% url 'web:book-detail' book.pk %}" class="flex items-center gap-3 px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-sm">
+      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-8" height="h-11" %}
+      <div class="min-w-0">
+        <span class="font-medium text-neutral-950 dark:text-neutral-100 block truncate">{{ book.title }}</span>
+        <span class="text-neutral-500 dark:text-neutral-400 truncate block">{% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+      </div>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+<p class="text-xs text-neutral-500 dark:text-neutral-400 mt-2 px-1"><a href="{% url 'web:book-list' %}?search={{ request.GET.search|urlencode }}" class="link">View all results</a></p>
+{% elif request.GET.search %}
+<p class="text-sm text-neutral-500 dark:text-neutral-400 px-1 py-2">No books found.</p>
+{% endif %}

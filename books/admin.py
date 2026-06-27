@@ -5,21 +5,25 @@ from books.models import (
     Book,
     BookAuthor,
     BookGenre,
+    BookNote,
     BookshelfItem,
     Genre,
     ImportJob,
+    MetadataMatchProposal,
     Quote,
     ReadingLog,
     ReadingProgress,
     Review,
+    Series,
     Shelf,
+    WebhookEndpoint,
 )
 
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    list_display = ("title", "isbn_13", "isbn_10", "published_year", "language", "deleted_at", "created_at")
-    list_filter = ("language", "deleted_at")
+    list_display = ("title", "isbn_13", "isbn_10", "format", "owned", "published_year", "language", "deleted_at", "created_at")
+    list_filter = ("language", "format", "owned", "deleted_at")
     search_fields = ("title", "subtitle", "isbn_13", "isbn_10", "publisher")
     readonly_fields = ("id", "search_vector", "created_at", "updated_at")
 
@@ -36,6 +40,13 @@ class BookAuthorAdmin(admin.ModelAdmin):
     list_filter = ("role",)
     search_fields = ("book__title", "author__name")
     autocomplete_fields = ("book", "author")
+
+
+@admin.register(Series)
+class SeriesAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "sort_order")
+    search_fields = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
 
 
 @admin.register(Genre)
@@ -121,6 +132,22 @@ class ImportJobAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.register(MetadataMatchProposal)
+class MetadataMatchProposalAdmin(admin.ModelAdmin):
+    list_display = ("book", "score", "status", "source_summary", "created_at")
+    list_filter = ("status",)
+    search_fields = ("book__title", "source_summary")
+    readonly_fields = ("id", "created_at", "updated_at")
+    autocomplete_fields = ("book",)
+
+
+@admin.register(BookNote)
+class BookNoteAdmin(admin.ModelAdmin):
+    list_display = ("book", "updated_at")
+    search_fields = ("book__title", "text")
+    autocomplete_fields = ("book",)
+
+
 @admin.register(Quote)
 class QuoteAdmin(admin.ModelAdmin):
     list_display = ("book", "position", "created_at")
@@ -142,3 +169,10 @@ class ReadingProgressAdmin(admin.ModelAdmin):
     search_fields = ("book__title", "note")
     autocomplete_fields = ("reading_log", "book")
     date_hierarchy = "logged_on"
+
+
+@admin.register(WebhookEndpoint)
+class WebhookEndpointAdmin(admin.ModelAdmin):
+    list_display = ("url", "enabled", "created_at")
+    list_filter = ("enabled",)
+    readonly_fields = ("id", "created_at", "updated_at")

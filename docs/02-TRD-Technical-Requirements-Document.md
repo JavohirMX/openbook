@@ -276,7 +276,7 @@ Unmapped Goodreads columns are ignored. Covers/descriptions absent from the CSV 
 | **Caching** | Cache lookups in the shared Django DB cache, keyed by ISBN, TTL ~30 days, to avoid repeat calls during bulk import |
 | **Multiple authors/works** | Map all returned authors to `Author` + `BookAuthor` with `position`; first author is primary |
 | **Subjects → genres** | Map Open Library `subjects` to `Genre` (deduped by slug, `source = open_library`); cap to a sensible number; remain user-editable |
-| **Fallback chain** | Open Library → Google Books → empty (manual entry). On miss/error/network failure at the end of the chain, return empty and let the user enter data manually; import continues using only CSV/ISBN data |
+| **Fallback chain** | Open Library → Google Books (when needed) → Wikidata (when needed) → empty (manual entry). Default `METADATA_LOOKUP_STRATEGY=chain`; set `parallel` for legacy merge-all. On miss/error/network failure at the end of the chain, return empty and let the user enter data manually; import continues using only CSV/ISBN data |
 | **Config** | Base URLs overridable via `OPENLIBRARY_BASE_URL` and `GOOGLE_BOOKS_BASE_URL` (eases testing/mocking) |
 
 ## 7. Security & Privacy

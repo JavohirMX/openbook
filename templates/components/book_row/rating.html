@@ -1,0 +1,7 @@
+{% if book.review and book.review.rating %}
+<div class="text-sm shrink-0 flex items-center gap-0.5" aria-label="Rating {{ book.review.rating }} of 5">
+  {% for i in "12345" %}
+  <svg class="w-4 h-4 {% if forloop.counter <= book.review.rating %}text-neutral-950 dark:text-neutral-100{% else %}text-neutral-300 dark:text-neutral-600{% endif %}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>
+  {% endfor %}
+</div>
+{% endif %}

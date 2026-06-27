@@ -4,7 +4,31 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 {% endblock %}
 {% block content %}
-<h1 class="page-title mb-10">Reading Stats</h1>
+<h1 class="page-title mb-4">Reading Stats</h1>
+
+<form method="get" class="surface-padded mb-8 flex flex-wrap items-end gap-4">
+  <div>
+    <label for="stats-period" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Time period</label>
+    <select name="period" id="stats-period" class="input text-sm min-w-[10rem]">
+      <option value="all" {% if stats_period == "all" %}selected{% endif %}>All time</option>
+      <option value="ytd" {% if stats_period == "ytd" %}selected{% endif %}>Year to date</option>
+      <option value="90d" {% if stats_period == "90d" %}selected{% endif %}>Last 90 days</option>
+      <option value="custom" {% if stats_period == "custom" %}selected{% endif %}>Custom range</option>
+    </select>
+  </div>
+  <div id="custom-range-fields" class="flex flex-wrap items-end gap-3 {% if stats_period != 'custom' %}hidden{% endif %}">
+    <div>
+      <label for="stats-start" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Start</label>
+      <input type="date" name="start" id="stats-start" value="{{ stats_period_start }}" class="input text-sm">
+    </div>
+    <div>
+      <label for="stats-end" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">End</label>
+      <input type="date" name="end" id="stats-end" value="{{ stats_period_end }}" class="input text-sm">
+    </div>
+  </div>
+  <button type="submit" class="btn-secondary text-sm">Apply</button>
+  {% if stats_period != "all" %}<span class="text-sm text-neutral-600 dark:text-neutral-400">{{ stats_period_label }}</span>{% endif %}
+</form>
 
 {% if not stats.total_books %}
 {% include "components/empty_state.html" with title="No stats yet" description="Add books to see your reading statistics." cta_url="/books/add/" cta_label="Add Book" %}
@@ -37,17 +61,100 @@
       <tbody>{% for g in stats.books_by_genre %}<tr><td>{{ g.name }}</td><td>{{ g.count }}</td></tr>{% endfor %}</tbody>
     </table>
   </div>
+
   <div class="surface p-5 lg:col-span-2">
+    <div id="stats-year-controls" class="mb-6">
+      {% include "stats/partials/year_controls.html" %}
+    </div>
     <h2 class="section-title mb-2">Monthly Reads</h2>
-    <p class="sr-only" id="monthlyChart-summary">{% for m in stats.monthly_reads %}{{ m.month }}: {{ m.count }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    <p class="sr-only" id="monthlyChart-summary">{% for m in yearly_monthly_reads %}{{ m.month }}: {{ m.count }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
     <div class="relative h-48">
       <canvas id="monthlyChart" role="img" aria-labelledby="monthlyChart-summary"></canvas>
     </div>
-    <table class="sr-only">
-      <caption>Books finished per month</caption>
-      <thead><tr><th>Month</th><th>Books finished</th></tr></thead>
-      <tbody>{% for m in stats.monthly_reads %}<tr><td>{{ m.month }}</td><td>{{ m.count }}</td></tr>{% endfor %}</tbody>
-    </table>
+  </div>
+
+  <div class="surface p-5">
+    <h2 class="section-title mb-2">By Status</h2>
+    <div class="relative h-64">
+      <canvas id="statusChart" role="img"></canvas>
+    </div>
+  </div>
+  <div class="surface p-5">
+    <h2 class="section-title mb-2">Pages per Month</h2>
+    <div class="relative h-64">
+      <canvas id="pagesMonthChart" role="img"></canvas>
+    </div>
+  </div>
+
+  <div class="surface p-5">
+    <h2 class="section-title mb-2">Rating Distribution</h2>
+    <div class="relative h-64">
+      <canvas id="ratingChart" role="img"></canvas>
+    </div>
+  </div>
+  <div class="surface p-5">
+    <h2 class="section-title mb-2">By Format</h2>
+    <div class="relative h-64">
+      <canvas id="formatChart" role="img"></canvas>
+    </div>
+  </div>
+
+  {% if stats_dnf.count %}
+  <div class="surface-padded lg:col-span-2">
+    <h2 class="section-title mb-2">Did Not Finish</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400">
+      {{ stats_dnf.count }} book{{ stats_dnf.count|pluralize }}
+      {% if stats_dnf.avg_progress_percent %} · avg {{ stats_dnf.avg_progress_percent }}% before stopping{% endif %}
+    </p>
+    {% if stats_dnf.top_genres %}
+    <ul class="mt-3 flex flex-wrap gap-2">
+      {% for g in stats_dnf.top_genres %}
+      <li class="badge">{{ g.name }} ({{ g.count }})</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if stats_reading_speed.avg_pages_per_day %}
+  <div class="surface-padded lg:col-span-2">
+    <h2 class="section-title mb-2">Reading Speed</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400">
+      {{ stats_reading_speed.avg_pages_per_day }} pages/day average
+      ({{ stats_reading_speed.total_pages }} pages over {{ stats_reading_speed.active_days }} active days)
+    </p>
+  </div>
+  {% endif %}
+
+  <div class="surface p-5 lg:col-span-2">
+    <h2 class="section-title mb-2">Reading Activity</h2>
+    <p class="sr-only" id="heatmap-summary">Daily reading progress entries over the last year</p>
+    <div id="reading-heatmap" class="overflow-x-auto" role="img" aria-labelledby="heatmap-summary"></div>
+    <div class="flex items-center gap-2 mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+      <span>Less</span>
+      <span class="inline-flex gap-0.5">
+        <span class="w-3 h-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"></span>
+        <span class="w-3 h-3 bg-emerald-200 dark:bg-emerald-900/60 border border-neutral-200 dark:border-neutral-700"></span>
+        <span class="w-3 h-3 bg-emerald-400 dark:bg-emerald-700 border border-neutral-200 dark:border-neutral-700"></span>
+        <span class="w-3 h-3 bg-emerald-600 dark:bg-emerald-500 border border-neutral-200 dark:border-neutral-700"></span>
+      </span>
+      <span>More</span>
+    </div>
+  </div>
+
+  <div class="surface p-5 lg:col-span-2">
+    <div id="stats-finish-calendar">
+      {% include "stats/partials/finish_calendar.html" %}
+    </div>
+  </div>
+</div>
+
+<div id="finish-day-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="finish-day-modal-title">
+  <div class="absolute inset-0 bg-neutral-950/60" onclick="closeFinishDayModal()"></div>
+  <div class="relative surface p-5 w-full max-w-md max-h-[85vh] overflow-y-auto">
+    <div id="finish-day-modal-body">
+      <p class="text-sm text-neutral-500 dark:text-neutral-400">Loading…</p>
+    </div>
   </div>
 </div>
 
@@ -55,14 +162,26 @@
 const shelfData = {{ stats_json_shelf|safe }};
 const genreData = {{ stats_json_genre|safe }};
 const monthlyData = {{ stats_json_monthly|safe }};
+const statusData = {{ stats_json_status|safe }};
+const pagesMonthData = {{ stats_json_pages_month|safe }};
+const heatmapData = {{ stats_json_heatmap|safe }};
+const ratingData = {{ stats_json_rating|safe }};
+const formatData = {{ stats_json_format|safe }};
+
+document.getElementById('stats-period')?.addEventListener('change', (e) => {
+  const custom = document.getElementById('custom-range-fields');
+  if (custom) custom.classList.toggle('hidden', e.target.value !== 'custom');
+});
 
 const CHART_PALETTE_LIGHT = [
-  '#1d4ed8', '#047857', '#b45309', '#be185d', '#6d28d9',
-  '#0e7490', '#4d7c0f', '#c2410c', '#4338ca', '#0f766e',
+  '#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed',
+  '#0891b2', '#db2777', '#65a30d', '#ea580c', '#4f46e5',
+  '#0d9488', '#c026d3',
 ];
 const CHART_PALETTE_DARK = [
-  '#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa',
-  '#22d3ee', '#a3e635', '#fb923c', '#818cf8', '#2dd4bf',
+  '#60a5fa', '#4ade80', '#fbbf24', '#f87171', '#a78bfa',
+  '#22d3ee', '#f472b6', '#a3e635', '#fb923c', '#818cf8',
+  '#2dd4bf', '#e879f9',
 ];
 
 function chartPalette() {
@@ -85,6 +204,11 @@ function chartThemeColors() {
   };
 }
 
+function formatMonthLabel(ym) {
+  const [year, month] = ym.split('-').map(Number);
+  return new Date(year, month - 1, 1).toLocaleString(undefined, { month: 'short' });
+}
+
 function doughnutOptions() {
   const colors = chartThemeColors();
   return {
@@ -96,7 +220,7 @@ function doughnutOptions() {
   };
 }
 
-function barOptions() {
+function barOptions(integerTicks) {
   const colors = chartThemeColors();
   return {
     responsive: true,
@@ -108,7 +232,11 @@ function barOptions() {
       x: { ticks: { color: colors.tick }, grid: { color: colors.grid } },
       y: {
         beginAtZero: true,
-        ticks: { stepSize: 1, color: colors.tick },
+        ticks: {
+          color: colors.tick,
+          stepSize: integerTicks ? 1 : undefined,
+          precision: integerTicks ? 0 : undefined,
+        },
         grid: { color: colors.grid },
       },
     },
@@ -137,11 +265,13 @@ function applyChartTheme(chart, type) {
 
 const shelfCounts = shelfData.map(s => s.count);
 const genreCounts = genreData.map(g => g.count);
-const monthlyCounts = monthlyData.map(m => m.count);
 const theme = chartThemeColors();
 
+const monthlyChartIndex = 2;
+const pagesChartIndex = 4;
+
 const charts = [
-  new Chart(document.getElementById('shelfChart'), {
+  { chart: new Chart(document.getElementById('shelfChart'), {
     type: 'doughnut',
     data: {
       labels: shelfData.map(s => s.name),
@@ -153,8 +283,8 @@ const charts = [
       }]
     },
     options: doughnutOptions(),
-  }),
-  new Chart(document.getElementById('genreChart'), {
+  }), type: 'doughnut' },
+  { chart: new Chart(document.getElementById('genreChart'), {
     type: 'doughnut',
     data: {
       labels: genreData.map(g => g.name),
@@ -166,36 +296,206 @@ const charts = [
       }]
     },
     options: doughnutOptions(),
-  }),
-  new Chart(document.getElementById('monthlyChart'), {
+  }), type: 'doughnut' },
+  { chart: new Chart(document.getElementById('monthlyChart'), {
     type: 'bar',
     data: {
-      labels: monthlyData.map(m => m.month),
+      labels: monthlyData.map(m => formatMonthLabel(m.month)),
       datasets: [{
         label: 'Books finished',
-        data: monthlyCounts,
-        backgroundColor: sliceColors(monthlyCounts.length),
+        data: monthlyData.map(m => m.count),
+        backgroundColor: sliceColors(monthlyData.length),
       }]
     },
-    options: barOptions(),
-  }),
+    options: barOptions(true),
+  }), type: 'bar' },
+  { chart: new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+      labels: statusData.map(s => s.status),
+      datasets: [{
+        data: statusData.map(s => s.count),
+        backgroundColor: sliceColors(statusData.length),
+        borderColor: theme.segmentBorder,
+        borderWidth: 2,
+      }]
+    },
+    options: doughnutOptions(),
+  }), type: 'doughnut' },
+  { chart: new Chart(document.getElementById('pagesMonthChart'), {
+    type: 'bar',
+    data: {
+      labels: pagesMonthData.map(m => formatMonthLabel(m.month)),
+      datasets: [{
+        label: 'Pages read',
+        data: pagesMonthData.map(m => m.pages),
+        backgroundColor: sliceColors(pagesMonthData.length),
+      }]
+    },
+    options: barOptions(false),
+  }), type: 'bar' },
 ];
 
-if (document.documentElement.classList.contains('dark')) {
-  applyChartTheme(charts[0], 'doughnut');
-  applyChartTheme(charts[1], 'doughnut');
-  applyChartTheme(charts[2], 'bar');
+if (document.getElementById('ratingChart') && ratingData.length) {
+  charts.push({ chart: new Chart(document.getElementById('ratingChart'), {
+    type: 'bar',
+    data: {
+      labels: ratingData.map(r => `${r.rating} ★`),
+      datasets: [{
+        label: 'Books',
+        data: ratingData.map(r => r.count),
+        backgroundColor: sliceColors(ratingData.length),
+      }]
+    },
+    options: barOptions(true),
+  }), type: 'bar' });
 }
 
-window.addEventListener('themechange', () => {
-  applyChartTheme(charts[0], 'doughnut');
-  applyChartTheme(charts[1], 'doughnut');
-  applyChartTheme(charts[2], 'bar');
+if (document.getElementById('formatChart') && formatData.length) {
+  charts.push({ chart: new Chart(document.getElementById('formatChart'), {
+    type: 'doughnut',
+    data: {
+      labels: formatData.map(f => f.format),
+      datasets: [{
+        data: formatData.map(f => f.count),
+        backgroundColor: sliceColors(formatData.length),
+        borderColor: theme.segmentBorder,
+        borderWidth: 2,
+      }]
+    },
+    options: doughnutOptions(),
+  }), type: 'doughnut' });
+}
+
+function updateYearScopedCharts(monthlyData, pagesData) {
+  const monthlyChart = charts[monthlyChartIndex].chart;
+  monthlyChart.data.labels = monthlyData.map(m => formatMonthLabel(m.month));
+  monthlyChart.data.datasets[0].data = monthlyData.map(m => m.count);
+  monthlyChart.data.datasets[0].backgroundColor = sliceColors(monthlyData.length);
+  monthlyChart.update();
+
+  const pagesChart = charts[pagesChartIndex].chart;
+  pagesChart.data.labels = pagesData.map(m => formatMonthLabel(m.month));
+  pagesChart.data.datasets[0].data = pagesData.map(m => m.pages);
+  pagesChart.data.datasets[0].backgroundColor = sliceColors(pagesData.length);
+  pagesChart.update();
+
+  const summary = document.getElementById('monthlyChart-summary');
+  if (summary) {
+    summary.textContent = monthlyData.map(m => `${m.month}: ${m.count}`).join(', ');
+  }
+}
+
+document.body.addEventListener('statsYearUpdated', (event) => {
+  updateYearScopedCharts(event.detail.monthly, event.detail.pages);
 });
 
+function refreshAllChartThemes() {
+  charts.forEach(({ chart, type }) => applyChartTheme(chart, type));
+}
+
+if (document.documentElement.classList.contains('dark')) {
+  refreshAllChartThemes();
+}
+
+window.addEventListener('themechange', refreshAllChartThemes);
+
 window.addEventListener('resize', () => {
-  charts.forEach(c => c.resize());
+  charts.forEach(({ chart }) => chart.resize());
 });
+
+function openFinishDayModal() {
+  document.getElementById('finish-day-modal').classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
+}
+
+function closeFinishDayModal() {
+  document.getElementById('finish-day-modal').classList.add('hidden');
+  document.body.classList.remove('overflow-hidden');
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeFinishDayModal();
+  }
+});
+
+function heatmapLevel(count, maxCount) {
+  if (!count) return 0;
+  if (maxCount <= 1) return 3;
+  const ratio = count / maxCount;
+  if (ratio >= 0.75) return 3;
+  if (ratio >= 0.4) return 2;
+  return 1;
+}
+
+function heatmapCellClass(level) {
+  const classes = [
+    'bg-neutral-100 dark:bg-neutral-800',
+    'bg-emerald-200 dark:bg-emerald-900/60',
+    'bg-emerald-400 dark:bg-emerald-700',
+    'bg-emerald-600 dark:bg-emerald-500',
+  ];
+  return classes[level] || classes[0];
+}
+
+function renderReadingHeatmap() {
+  const container = document.getElementById('reading-heatmap');
+  if (!container || !heatmapData.length) {
+    if (container) container.innerHTML = '<p class="text-sm text-neutral-500 dark:text-neutral-400">No reading activity yet.</p>';
+    return;
+  }
+  const countByDate = Object.fromEntries(heatmapData.map(d => [d.date, d.count]));
+  const maxCount = Math.max(...heatmapData.map(d => d.count));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 364);
+  const startDow = start.getDay();
+  start.setDate(start.getDate() - startDow);
+
+  const weeks = [];
+  let cursor = new Date(start);
+  while (cursor <= today) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const iso = cursor.toISOString().slice(0, 10);
+      const count = countByDate[iso] || 0;
+      const inRange = cursor >= new Date(today.getTime() - 364 * 86400000) && cursor <= today;
+      week.push({ date: iso, count, inRange });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'inline-flex gap-0.5';
+  weeks.forEach(week => {
+    const col = document.createElement('div');
+    col.className = 'flex flex-col gap-0.5';
+    week.forEach(day => {
+      const cell = document.createElement('span');
+      const level = day.inRange ? heatmapLevel(day.count, maxCount) : 0;
+      cell.className = `w-3 h-3 border border-neutral-200 dark:border-neutral-700 ${heatmapCellClass(level)}`;
+      cell.title = day.inRange ? `${day.date}: ${day.count} entr${day.count === 1 ? 'y' : 'ies'}` : '';
+      col.appendChild(cell);
+    });
+    grid.appendChild(col);
+  });
+  container.innerHTML = '';
+  container.appendChild(grid);
+
+  const summary = document.getElementById('heatmap-summary');
+  if (summary) {
+    const activeDays = heatmapData.filter(d => {
+      const dt = new Date(d.date + 'T00:00:00');
+      return dt >= new Date(today.getTime() - 364 * 86400000);
+    }).length;
+    summary.textContent = `${activeDays} active days in the last year`;
+  }
+}
+
+renderReadingHeatmap();
 </script>
 {% endif %}
 {% endblock %}

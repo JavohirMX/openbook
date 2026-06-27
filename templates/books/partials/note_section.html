@@ -1,0 +1,5 @@
+<p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Only visible to you. Markdown supported.</p>
+<form method="post" action="{% url 'web:book-note' book.pk %}" data-disable-on-submit>{% csrf_token %}
+  {{ note_form.text }}
+  <button type="submit" class="btn-primary text-sm mt-4" data-loading-text="Saving…">Save note</button>
+</form>

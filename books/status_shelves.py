@@ -23,6 +23,16 @@ STATUS_SHELF_DEFINITIONS: tuple[dict[str, str], ...] = (
         "status": ReadingStatus.FINISHED,
         "name": "Read",
     },
+    {
+        "slug": "paused",
+        "status": ReadingStatus.PAUSED,
+        "name": "Paused",
+    },
+    {
+        "slug": "dnf",
+        "status": ReadingStatus.ABANDONED,
+        "name": "DNF",
+    },
 )
 
 _SLUG_TO_DEFINITION = {item["slug"]: item for item in STATUS_SHELF_DEFINITIONS}

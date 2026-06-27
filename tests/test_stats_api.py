@@ -90,6 +90,20 @@ class TestStatsComputation:
                 "is_status_shelf": True,
             },
             {
+                "shelf_id": None,
+                "slug": "paused",
+                "name": "Paused",
+                "count": 0,
+                "is_status_shelf": True,
+            },
+            {
+                "shelf_id": None,
+                "slug": "dnf",
+                "name": "DNF",
+                "count": 0,
+                "is_status_shelf": True,
+            },
+            {
                 "shelf_id": shelf.pk,
                 "name": "2026 Reads",
                 "count": 1,

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ display_name }} — openbook{% endblock %}
+{% block content %}
+<header class="mb-10 text-center">
+  <p class="text-sm text-neutral-500 dark:text-neutral-500 mb-1">Reading profile</p>
+  <h1 class="page-title">{{ display_name }}</h1>
+</header>
+
+<section class="mb-12">
+  <h2 class="section-title mb-5">Quick Stats</h2>
+  {% include "components/metrics_strip.html" with items=metrics_items %}
+</section>
+
+<section class="mb-12">
+  <h2 class="section-title mb-5">Currently Reading</h2>
+  {% if currently_reading %}
+  <div class="surface-list">
+    {% for log in currently_reading %}
+    <div class="flex items-center gap-4 px-4 py-5">
+      {% include "components/book_cover.html" with cover_url=log.book.cover_display_url title=log.book.title width="w-12" height="h-16" %}
+      <div class="min-w-0 flex-1">
+        <p class="font-medium text-neutral-950 dark:text-neutral-100 truncate">{{ log.book.title }}</p>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400">
+          {% for a in log.book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}
+        </p>
+        {% if log.progress_percent %}
+        <p class="text-sm text-neutral-500 dark:text-neutral-500 mt-1">{{ log.progress_percent }}% done</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  {% include "components/empty_inline.html" with message="Nothing on the currently-reading shelf." %}
+  {% endif %}
+</section>
+
+<section>
+  <h2 class="section-title mb-5">Recently Read</h2>
+  {% if recently_read %}
+  <div class="surface-list">
+    {% for log in recently_read %}
+    <div class="flex items-center gap-4 px-4 py-5">
+      {% include "components/book_cover.html" with cover_url=log.book.cover_display_url title=log.book.title width="w-12" height="h-16" %}
+      <div class="min-w-0 flex-1">
+        <p class="font-medium text-neutral-950 dark:text-neutral-100 truncate">{{ log.book.title }}</p>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400">
+          {% for a in log.book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}
+        </p>
+        {% if log.finished_at %}
+        <p class="text-xs text-neutral-500 dark:text-neutral-500 mt-1">Finished {{ log.finished_at|date:"M j, Y" }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  {% include "components/empty_inline.html" with message="No finished books yet." %}
+  {% endif %}
+</section>
+{% endblock %}

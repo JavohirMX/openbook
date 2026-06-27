@@ -61,4 +61,9 @@ def update_reading_log(reading_log, data):
             note=note,
         )
 
+    if old_status != new_status:
+        from books.webhooks import emit_reading_status_changed
+
+        emit_reading_status_changed(reading_log, old_status, new_status)
+
     return reading_log

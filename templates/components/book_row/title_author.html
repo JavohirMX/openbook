@@ -1,0 +1,4 @@
+<p class="font-medium text-neutral-950 dark:text-neutral-100 {% if compact %}truncate{% endif %}">
+  {% if show_series_position and book.series_position %}#{{ book.series_position }} · {% endif %}{{ book.title }}
+</p>
+<p class="text-sm text-neutral-600 dark:text-neutral-400 {% if compact %}truncate{% endif %}">{% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</p>

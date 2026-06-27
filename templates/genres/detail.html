@@ -1,25 +1,64 @@
 {% extends "base.html" %}
 {% block title %}{{ genre.name }} — openbook{% endblock %}
 {% block content %}
-<a href="{% url 'web:book-list' %}?genre={{ genre.pk }}" class="link text-sm">&larr; Books</a>
-<h1 class="page-title mt-2 mb-2">{{ genre.name }}</h1>
+<a href="{% url 'web:genre-list' %}" class="link text-sm">&larr; All genres</a>
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2 mb-2">
+  <h1 class="page-title">{{ genre.name }}</h1>
+  {% include "components/book_view_toggle.html" %}
+</div>
 <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{{ genre.book_count }} book{{ genre.book_count|pluralize }}</p>
 
+<div data-book-view-page>
 {% if books %}
-<ul class="surface-list">
-  {% for book in books %}
-  <li class="px-4 py-4">
-    <a href="{% url 'web:book-detail' book.pk %}" class="flex items-center gap-3">
-      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-10" height="h-14" %}
-      <div class="min-w-0">
-        <span class="font-medium text-neutral-950 dark:text-neutral-100 block truncate">{{ book.title }}</span>
-        <span class="text-sm text-neutral-500 dark:text-neutral-400">{% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
-      </div>
-    </a>
-  </li>
-  {% endfor %}
-</ul>
+{% include "components/book_collection.html" with books=books show_genres=False %}
 {% else %}
 {% include "components/empty_state.html" with title="No books in this genre" %}
 {% endif %}
+</div>
+
+<section class="surface-padded mt-8">
+  <h2 class="section-title mb-4">Manage genre</h2>
+  <div class="space-y-6">
+    <form method="post" class="max-w-md">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="rename">
+      <label for="genre-rename" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Rename</label>
+      <div class="flex gap-2">
+        <input type="text" name="name" id="genre-rename" value="{{ genre.name }}" class="input flex-1">
+        <button type="submit" class="btn-secondary text-sm shrink-0">Save</button>
+      </div>
+    </form>
+
+    <form method="post" class="max-w-md">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="merge">
+      <label for="genre-merge" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Merge into another genre</label>
+      <div class="flex gap-2">
+        <select name="merge_into" id="genre-merge" class="input flex-1">
+          <option value="">Select genre…</option>
+          {% for g in manage_form.fields.merge_into.queryset %}
+          <option value="{{ g.pk }}">{{ g.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn-secondary text-sm shrink-0" onclick="return confirm('Merge all books from this genre into the selected genre?')">Merge</button>
+      </div>
+    </form>
+
+    <form method="post" class="max-w-md">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete">
+      <label for="genre-reassign" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Delete genre</label>
+      <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Reassign books first if this genre has any.</p>
+      <div class="flex gap-2">
+        <select name="reassign_to" id="genre-reassign" class="input flex-1">
+          <option value="">Reassign books to…</option>
+          {% for g in manage_form.fields.reassign_to.queryset %}
+          <option value="{{ g.pk }}">{{ g.name }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn-destructive text-sm shrink-0" onclick="return confirm('Delete this genre?')">Delete</button>
+      </div>
+    </form>
+  </div>
+</section>
 {% endblock %}

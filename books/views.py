@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from books.filters import BookFilter
 from books.isbn import normalize_isbn
 from books.metadata import MetadataService
-from books.models import Author, Book, BookshelfItem, Genre, Quote, ReadingLog, Review, Shelf
+from books.models import Author, Book, BookNote, BookshelfItem, Genre, Quote, ReadingGoal, ReadingLog, Review, Series, Shelf, WebhookEndpoint
 from books.provider_links import book_provider_links
 from books.reading_service import update_reading_log
 from books.reading_timeline import build_reading_timeline
@@ -20,15 +20,22 @@ from books.serializers import (
     AuthorDetailSerializer,
     AuthorSerializer,
     BookListSerializer,
+    BookNoteSerializer,
     BookSerializer,
+    GenreDeleteSerializer,
     GenreDetailSerializer,
     GenreSerializer,
+    GenreUpdateSerializer,
     QuoteSerializer,
     ReadingLogSerializer,
     ReadingLogUpdateSerializer,
     ReviewSerializer,
+    ReadingGoalSerializer,
+    SeriesSerializer,
     ShelfSerializer,
+    WebhookEndpointSerializer,
 )
+from books.services import delete_genre, merge_genres, rename_genre
 from books.stats import compute_stats
 
 
@@ -51,10 +58,11 @@ class AuthorViewSet(viewsets.ReadOnlyModelViewSet):
         return AuthorSerializer
 
 
-class GenreViewSet(viewsets.ReadOnlyModelViewSet):
+class GenreViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = GenreSerializer
     lookup_field = "slug"
+    http_method_names = ["get", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         from django.db.models import Count
@@ -64,7 +72,48 @@ class GenreViewSet(viewsets.ReadOnlyModelViewSet):
     def get_serializer_class(self):
         if self.action == "retrieve":
             return GenreDetailSerializer
+        if self.action in ("partial_update", "update"):
+            return GenreUpdateSerializer
+        if self.action == "destroy":
+            return GenreDeleteSerializer
         return GenreSerializer
+
+    def partial_update(self, request, *args, **kwargs):
+        genre = self.get_object()
+        serializer = GenreUpdateSerializer(genre, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+
+        merge_into = serializer.validated_data.pop("merge_into", None)
+        if merge_into is not None:
+            genre = merge_genres(genre, merge_into)
+            return Response(GenreDetailSerializer(genre).data)
+
+        new_name = serializer.validated_data.get("name")
+        if new_name is not None:
+            genre = rename_genre(genre, new_name)
+        return Response(GenreDetailSerializer(genre).data)
+
+    def destroy(self, request, *args, **kwargs):
+        genre = self.get_object()
+        serializer = GenreDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reassign_to = serializer.validated_data.get("reassign_to")
+        try:
+            delete_genre(genre, reassign_to=reassign_to)
+        except ValueError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SeriesViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = SeriesSerializer
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        from django.db.models import Count
+
+        return Series.objects.annotate(book_count=Count("books")).order_by("sort_order", "name")
 
 
 class ShelfViewSet(viewsets.ModelViewSet):
@@ -74,6 +123,13 @@ class ShelfViewSet(viewsets.ModelViewSet):
     serializer_class = ShelfSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+
+class ReadingGoalViewSet(viewsets.ModelViewSet):
+    queryset = ReadingGoal.objects.all()
+    serializer_class = ReadingGoalSerializer
+    permission_classes = [IsAuthenticated]
+    lookup_field = "year"
 
 
 class StatsView(APIView):
@@ -99,7 +155,7 @@ class BookViewSet(viewsets.ModelViewSet):
 
         return (
             Book.objects.prefetch_related("authors", "genres")
-            .select_related("reading_log")
+            .select_related("reading_log", "series")
             .order_by("-created_at")
         )
 
@@ -284,6 +340,30 @@ class BookViewSet(viewsets.ModelViewSet):
         quote = serializer.save(book=book)
         return Response(QuoteSerializer(quote).data, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=["get", "put", "delete"], url_path="note")
+    def note(self, request, pk=None):
+        book = self.get_object()
+
+        if request.method == "GET":
+            note = book.private_notes.first()
+            if note is None:
+                raise NotFound("Note not found.")
+            return Response(BookNoteSerializer(note).data)
+
+        if request.method == "PUT":
+            serializer = BookNoteSerializer(data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            note, _created = BookNote.objects.update_or_create(
+                book=book,
+                defaults=serializer.validated_data,
+            )
+            return Response(BookNoteSerializer(note).data)
+
+        deleted, _ = book.private_notes.all().delete()
+        if not deleted:
+            raise NotFound("Note not found.")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["get"], url_path="provider-links")
     def provider_links(self, request, pk=None):
         book = self.get_object()
@@ -320,6 +400,28 @@ class ImportView(APIView):
         return Response(serialize_job(job, request=request), status=status.HTTP_202_ACCEPTED)
 
 
+class ImportBackfillView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from books.import_jobs import create_metadata_backfill_job, serialize_job
+        from books.library_maintenance import books_needing_metadata
+
+        book_ids = request.data.get("book_ids")
+        if book_ids is None:
+            book_ids = [str(pk) for pk in books_needing_metadata().values_list("pk", flat=True)]
+        elif isinstance(book_ids, str):
+            book_ids = [line.strip() for line in book_ids.splitlines() if line.strip()]
+        else:
+            book_ids = [str(book_id) for book_id in book_ids if book_id]
+
+        if not book_ids:
+            raise ValidationError({"book_ids": ["No books eligible for metadata backfill."]})
+
+        job = create_metadata_backfill_job(request.user, book_ids)
+        return Response(serialize_job(job, request=request), status=status.HTTP_202_ACCEPTED)
+
+
 class ImportJobDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -337,6 +439,24 @@ class ImportJobDetailView(APIView):
         ):
             confirm_csv_job(job)
 
+        return Response(serialize_job(job, request=request))
+
+    def post(self, request, pk):
+        from books.import_jobs import request_cancel_import_job, serialize_job
+        from books.models import ImportJob
+
+        job = ImportJob.objects.filter(pk=pk, user=request.user).first()
+        if not job:
+            raise NotFound("Import job not found.")
+
+        try:
+            request_cancel_import_job(job)
+        except ValueError as exc:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError({"detail": str(exc)}) from exc
+
+        job.refresh_from_db()
         return Response(serialize_job(job, request=request))
 
 
@@ -380,3 +500,10 @@ class EmbedView(APIView):
             return Response({"error": "Invalid or disabled embed key."}, status=status.HTTP_403_FORBIDDEN)
 
         return Response(embed_payload(kind=kind, request=request))
+
+
+class WebhookEndpointViewSet(viewsets.ModelViewSet):
+    queryset = WebhookEndpoint.objects.all()
+    serializer_class = WebhookEndpointSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]

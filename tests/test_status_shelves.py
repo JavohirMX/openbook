@@ -82,3 +82,18 @@ def test_status_shelf_detail_unknown_slug_returns_404(logged_in_client):
         reverse("web:status-shelf-detail", kwargs={"slug": "does-not-exist"}),
     )
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_paused_and_dnf_status_shelves():
+    paused_book = BookFactory(title="Paused Book")
+    paused_book.reading_log.status = ReadingStatus.PAUSED
+    paused_book.reading_log.save(update_fields=["status"])
+
+    dnf_book = BookFactory(title="DNF Book")
+    dnf_book.reading_log.status = ReadingStatus.ABANDONED
+    dnf_book.reading_log.save(update_fields=["status"])
+
+    shelves = {shelf.slug: shelf for shelf in get_status_shelves()}
+    assert shelves["paused"].book_count == 1
+    assert shelves["dnf"].book_count == 1

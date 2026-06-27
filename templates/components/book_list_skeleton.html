@@ -1,3 +1,23 @@
+{% if book_view == "grid" %}
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4" aria-hidden="true">
+  {% for i in "12345678" %}
+  <div class="surface p-3">
+    <div class="skeleton aspect-[2/3] w-full mb-3"></div>
+    <div class="skeleton h-4 w-full mb-2"></div>
+    <div class="skeleton h-3 w-2/3"></div>
+  </div>
+  {% endfor %}
+</div>
+{% elif book_view == "compact" %}
+<div class="surface-list" aria-hidden="true">
+  {% for i in "1234567890" %}
+  <div class="px-4 py-2 flex gap-3 items-center">
+    <div class="skeleton w-8 h-11 shrink-0"></div>
+    <div class="skeleton h-4 flex-1"></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
 <div class="surface-list" aria-hidden="true">
   {% for i in "12345" %}
   <div class="px-4 py-4 flex gap-4">
@@ -10,3 +30,4 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}

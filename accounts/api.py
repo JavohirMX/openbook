@@ -1,11 +1,11 @@
 from django.contrib.auth import authenticate, get_user_model
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import ApiToken
 from openbook.api.throttling import AuthRateThrottle
 
 User = get_user_model()
@@ -30,7 +30,9 @@ class LoginView(APIView):
         if user is None:
             raise AuthenticationFailed("Invalid email or password.")
 
-        token, _created = Token.objects.get_or_create(user=user)
+        token = ApiToken.objects.filter(user=user, label="Default").first()
+        if not token:
+            token = ApiToken.create_for_user(user, label="Default")
         return Response({"token": token.key}, status=status.HTTP_200_OK)
 
 
@@ -38,5 +40,8 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        Token.objects.filter(user=request.user).delete()
+        if isinstance(request.auth, ApiToken):
+            request.auth.delete()
+        else:
+            ApiToken.objects.filter(user=request.user).delete()
         return Response(status=status.HTTP_200_OK)

@@ -1,12 +1,6 @@
-<h3 class="section-title mb-3">Reading Status</h3>
-{% if reading_form.status.value == 'reading' %}
-<div class="mb-4 max-w-md">
-  {% include "components/progress_bar.html" with percent=reading_form.progress_percent.value|default:0 %}
-  <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">{{ reading_form.progress_percent.value|default:0 }}% complete</p>
-</div>
-{% endif %}
 <form method="post" action="{% url 'web:book-reading' book.pk %}" data-disable-on-submit
-      hx-post="{% url 'web:book-reading' book.pk %}" hx-target="#reading-section" hx-swap="innerHTML" hx-indicator="#reading-loading">
+      hx-post="{% url 'web:book-reading' book.pk %}" hx-target="#reading-section" hx-swap="innerHTML" hx-indicator="#reading-loading"
+      hx-trigger="change from:input[name=status], submit">
   {% csrf_token %}
   <fieldset>
     <legend class="sr-only">Reading status</legend>
@@ -19,16 +13,38 @@
       {% endfor %}
     </div>
   </fieldset>
-  <div id="reading-progress-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md {% if reading_form.status.value != 'reading' %}hidden{% endif %}">
-    <div>
-      <label for="id_progress_percent" class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1">Progress %</label>
-      <input type="number" name="progress_percent" id="id_progress_percent" min="0" max="100" value="{{ reading_form.progress_percent.value|default:'' }}" class="input">
+  <details id="reading-progress-details" class="group mb-4 max-w-md" {% if reading_form.status.value == 'reading' %}open{% endif %}>
+    <summary class="text-sm font-medium text-neutral-700 dark:text-neutral-300 cursor-pointer list-none flex items-center justify-between gap-4 rounded px-2 py-2 -mx-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300">
+      <span>Log progress</span>
+      <svg class="w-5 h-5 text-neutral-400 shrink-0 group-open:rotate-180 transition-transform duration-150" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+    </summary>
+    <div id="reading-progress-fields" class="mt-3 space-y-4">
+      {% if reading_form.status.value == 'reading' %}
+      <div>
+        {% include "components/progress_bar.html" with percent=reading_form.progress_percent.value|default:0 %}
+        <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-1">{{ reading_form.progress_percent.value|default:0 }}% complete</p>
+      </div>
+      {% endif %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="id_progress_percent" class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1">Progress %</label>
+          <input type="number" name="progress_percent" id="id_progress_percent" min="0" max="100" value="{{ reading_form.progress_percent.value|default:'' }}" class="input">
+        </div>
+        <div>
+          <label for="id_current_page" class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1">Current page</label>
+          <input type="number" name="current_page" id="id_current_page" min="0" value="{{ reading_form.current_page.value|default:'' }}" class="input">
+        </div>
+        <div>
+          <label for="id_pages_read" class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1">Pages read today</label>
+          <input type="number" name="pages_read" id="id_pages_read" min="0" value="{{ reading_form.pages_read.value|default:'' }}" class="input">
+        </div>
+        <div class="sm:col-span-2">
+          <label for="id_note" class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1">Note</label>
+          <input type="text" name="note" id="id_note" value="{{ reading_form.note.value|default:'' }}" class="input" placeholder="Optional note">
+        </div>
+      </div>
+      <div id="reading-loading" class="htmx-indicator text-sm text-neutral-600 dark:text-neutral-400">Updating…</div>
+      <button type="submit" class="btn-primary text-sm" data-loading-text="Saving…">Save progress</button>
     </div>
-    <div>
-      <label for="id_current_page" class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1">Current page</label>
-      <input type="number" name="current_page" id="id_current_page" min="0" value="{{ reading_form.current_page.value|default:'' }}" class="input">
-    </div>
-  </div>
-  <div id="reading-loading" class="htmx-indicator text-sm text-neutral-600 dark:text-neutral-400 mt-2">Updating…</div>
-  <button type="submit" class="btn-primary mt-4 text-sm" data-loading-text="Updating…">Update Progress</button>
+  </details>
 </form>

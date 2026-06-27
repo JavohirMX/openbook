@@ -30,22 +30,143 @@
   </section>
 
   <section class="surface-padded">
+    <h2 class="section-title mb-2">Security</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Change your login password.</p>
+    <form method="post" data-disable-on-submit>{% csrf_token %}
+      <input type="hidden" name="action" value="change_password">
+      <div class="mb-3">
+        <label for="id_old_password" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Current password</label>
+        {{ password_form.old_password }}
+        {% if password_form.old_password.errors %}<p class="text-sm text-red-600 mt-1">{{ password_form.old_password.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="mb-3">
+        <label for="id_new_password1" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">New password</label>
+        {{ password_form.new_password1 }}
+        {% if password_form.new_password1.errors %}<p class="text-sm text-red-600 mt-1">{{ password_form.new_password1.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="mb-4">
+        <label for="id_new_password2" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Confirm new password</label>
+        {{ password_form.new_password2 }}
+        {% if password_form.new_password2.errors %}<p class="text-sm text-red-600 mt-1">{{ password_form.new_password2.errors.0 }}</p>{% endif %}
+      </div>
+      <button type="submit" class="btn-primary text-sm" data-loading-text="Updating…">Change password</button>
+    </form>
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Metadata providers</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      Configure optional API keys and contact email in your <code class="text-xs">.env</code> file.
+      See <code class="text-xs">.env.example</code> for variable names.
+    </p>
+    <ul class="text-sm space-y-2 text-neutral-700 dark:text-neutral-300">
+      <li>Open Library contact email: {% if metadata_config.openlibrary_contact %}configured{% else %}not set (1 req/s pacing){% endif %}</li>
+      <li>Google Books API key: {% if metadata_config.google_books_key %}configured{% else %}not set (lower daily quota){% endif %}</li>
+      <li>Wikidata: {% if metadata_config.wikidata_enabled %}enabled{% else %}disabled{% endif %}</li>
+      <li>Hardcover: {% if metadata_config.hardcover_enabled %}enabled{% elif metadata_config.hardcover_configured %}token set but disabled{% else %}not configured{% endif %}</li>
+      <li>ISBNdb: {% if metadata_config.isbndb_enabled %}enabled{% else %}not configured{% endif %}</li>
+      <li>Import enrichment: {% if metadata_config.import_enrichment %}on{% else %}off{% endif %}</li>
+      <li>Lookup strategy: {{ metadata_config.lookup_strategy }}</li>
+    </ul>
+  </section>
+
+  <section class="surface-padded">
     <h2 class="section-title mb-2">Preferences</h2>
     <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-3">Theme</p>
     {% include "components/theme_picker.html" %}
   </section>
 
   <section class="surface-padded">
-    <h2 class="section-title mb-2">API Token</h2>
-    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Use this token for API access.</p>
-    {% include "components/secret_value.html" with id="api-token" value=api_token show_copy=True copy_label="Copy token" %}
-    {% if new_token %}
-    <p class="text-sm text-neutral-700 dark:text-neutral-300 mb-2">New token (copy now):</p>
-    {% include "components/secret_value.html" with id="new-api-token" value=new_token show_copy=True copy_label="Copy token" %}
+    <h2 class="section-title mb-2">Reading goals</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Set annual book and page targets. Progress appears on the dashboard and year in review.</p>
+    {% if reading_goals %}
+    <ul class="divide-y divide-neutral-100 dark:divide-neutral-800 mb-6 text-sm">
+      {% for goal in reading_goals %}
+      <li class="py-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ goal.year }}</span>
+          <span class="text-neutral-600 dark:text-neutral-400"> — {{ goal.target_books }} books{% if goal.target_pages %}, {{ goal.target_pages }} pages{% endif %}</span>
+        </div>
+        <div class="flex gap-2">
+          <a href="{% url 'web:year-review' goal.year %}" class="link text-sm">Review</a>
+          <form method="post" class="inline">{% csrf_token %}
+            <input type="hidden" name="action" value="delete_reading_goal">
+            <input type="hidden" name="goal_id" value="{{ goal.pk }}">
+            <button type="submit" class="link text-sm text-red-600 dark:text-red-400">Delete</button>
+          </form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
     {% endif %}
-    <form method="post" onsubmit="return confirm('Regenerate token? Old token will stop working.')">{% csrf_token %}
-      <input type="hidden" name="action" value="regenerate_token">
-      <button type="submit" class="btn-secondary text-sm">Regenerate Token</button>
+    <form method="post" data-disable-on-submit>{% csrf_token %}
+      <input type="hidden" name="action" value="save_reading_goal">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div>
+          <label for="id_year" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Year</label>
+          {{ reading_goal_form.year }}
+        </div>
+        <div>
+          <label for="id_target_books" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Target books</label>
+          {{ reading_goal_form.target_books }}
+        </div>
+        <div>
+          <label for="id_target_pages" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Target pages (optional)</label>
+          {{ reading_goal_form.target_pages }}
+        </div>
+      </div>
+      <button type="submit" class="btn-primary text-sm" data-loading-text="Saving…">Save goal</button>
+    </form>
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Keyboard shortcuts</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-3">Works on any page except while typing in a form field.</p>
+    <dl class="text-sm space-y-2">
+      <div class="flex gap-3"><dt class="font-mono text-neutral-700 dark:text-neutral-300 w-16 shrink-0">/</dt><dd class="text-neutral-600 dark:text-neutral-400">Focus search</dd></div>
+      <div class="flex gap-3"><dt class="font-mono text-neutral-700 dark:text-neutral-300 w-16 shrink-0">g b</dt><dd class="text-neutral-600 dark:text-neutral-400">Go to Books</dd></div>
+      <div class="flex gap-3"><dt class="font-mono text-neutral-700 dark:text-neutral-300 w-16 shrink-0">g s</dt><dd class="text-neutral-600 dark:text-neutral-400">Go to Stats</dd></div>
+    </dl>
+  </section>
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">API Tokens</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Create named tokens for scripts and agents. Revoke any token you no longer need.</p>
+    {% if new_token %}
+    <div class="mb-4 p-3 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+      <p class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-1">New token{% if new_token_label %} — {{ new_token_label }}{% endif %} (copy now)</p>
+      {% include "components/secret_value.html" with id="new-api-token" value=new_token show_copy=True copy_label="Copy token" %}
+    </div>
+    {% endif %}
+    {% if api_tokens %}
+    <ul class="divide-y divide-neutral-100 dark:divide-neutral-800 text-sm mb-4">
+      {% for token in api_tokens %}
+      <li class="py-3 flex items-center justify-between gap-4">
+        <div class="min-w-0">
+          <p class="font-medium text-neutral-800 dark:text-neutral-200">{{ token.label }}</p>
+          <p class="text-xs text-neutral-500 dark:text-neutral-500">
+            Created {{ token.created_at|date:"M j, Y" }}
+            {% if token.last_used_at %} · Last used {{ token.last_used_at|timesince }} ago{% else %} · Never used{% endif %}
+          </p>
+        </div>
+        <form method="post" onsubmit="return confirm('Revoke token &quot;{{ token.label }}&quot;?')">{% csrf_token %}
+          <input type="hidden" name="action" value="revoke_token">
+          <input type="hidden" name="token_id" value="{{ token.id }}">
+          <button type="submit" class="btn-secondary text-xs">Revoke</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4">No API tokens yet.</p>
+    {% endif %}
+    <form method="post" class="flex flex-wrap items-end gap-3">{% csrf_token %}
+      <input type="hidden" name="action" value="create_token">
+      <div class="flex-1 min-w-[12rem]">
+        <label for="id_token_label" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Label</label>
+        <input type="text" name="label" id="id_token_label" class="input" placeholder="e.g. Home automation" required maxlength="64">
+      </div>
+      <button type="submit" class="btn-primary text-sm">Create token</button>
     </form>
   </section>
 
@@ -71,15 +192,81 @@
     <pre class="bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 p-3 text-xs overflow-x-auto mb-4"><code>&lt;div id="openbook-reading"&gt;&lt;/div&gt;
 &lt;script src="{{ embed_base_url }}{% url 'web:embed-widget' %}?key={{ embed_key }}&amp;kind=currently_reading" async&gt;&lt;/script&gt;</code></pre>
     <p class="text-sm text-neutral-500 dark:text-neutral-400">Use <code class="text-xs">kind=recently_finished</code> for recently finished books. JSON API: <code class="text-xs">{{ embed_base_url }}/api/v1/embed/?key=…</code></p>
+    <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-2">Public profile: <code class="text-xs">{{ embed_base_url }}{% url 'web:public-profile' %}?key={{ embed_key }}</code></p>
     {% elif not embed_enabled %}
     <p class="text-sm text-neutral-500 dark:text-neutral-400">Enable the embed to get your snippet and key.</p>
     {% endif %}
   </section>
 
   <section class="surface-padded">
+    <h2 class="section-title mb-2">Webhooks</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      Receive signed POST callbacks when reading status changes or imports complete.
+    </p>
+    {% if new_webhook_secret %}
+    <div class="mb-4 p-3 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-lg">
+      <p class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-1">New webhook signing secret (copy now)</p>
+      {% include "components/secret_value.html" with id="new-webhook-secret" value=new_webhook_secret show_copy=True copy_label="Copy secret" %}
+    </div>
+    {% endif %}
+    {% if webhooks %}
+    <ul class="divide-y divide-neutral-100 dark:divide-neutral-800 text-sm mb-4">
+      {% for webhook in webhooks %}
+      <li class="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-medium text-neutral-800 dark:text-neutral-200 truncate">{{ webhook.url }}</p>
+          <p class="text-xs text-neutral-500 dark:text-neutral-500">
+            {{ webhook.events|join:", " }}
+            · {% if webhook.enabled %}Enabled{% else %}Disabled{% endif %}
+          </p>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <form method="post">{% csrf_token %}
+            <input type="hidden" name="action" value="toggle_webhook">
+            <input type="hidden" name="webhook_id" value="{{ webhook.id }}">
+            <button type="submit" class="btn-secondary text-xs">{% if webhook.enabled %}Disable{% else %}Enable{% endif %}</button>
+          </form>
+          <form method="post" onsubmit="return confirm('Delete this webhook?')">{% csrf_token %}
+            <input type="hidden" name="action" value="delete_webhook">
+            <input type="hidden" name="webhook_id" value="{{ webhook.id }}">
+            <button type="submit" class="btn-secondary text-xs">Delete</button>
+          </form>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4">No webhooks configured.</p>
+    {% endif %}
+    <form method="post" class="space-y-3">{% csrf_token %}
+      <input type="hidden" name="action" value="create_webhook">
+      <div>
+        <label for="id_webhook_url" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Endpoint URL</label>
+        <input type="url" name="url" id="id_webhook_url" class="input" placeholder="https://example.com/hooks/openbook" required>
+      </div>
+      <fieldset>
+        <legend class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Events</legend>
+        <div class="space-y-2">
+          {% for event in webhook_events %}
+          <label class="inline-flex items-center gap-2 text-sm mr-4">
+            <input type="checkbox" name="events" value="{{ event }}" class="rounded border-neutral-300">
+            {{ event }}
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <button type="submit" class="btn-primary text-sm">Add webhook</button>
+    </form>
+  </section>
+
+  <section class="surface-padded">
     <h2 class="section-title mb-2">Data</h2>
-    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-2">Import or export your library.</p>
-    <a href="{% url 'web:import-export' %}" class="link text-sm">Import / Export books</a>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Import or export your library.</p>
+    <div class="flex flex-wrap gap-3">
+      <a href="{% url 'web:import-export' %}" class="btn-secondary text-sm">Import / Export</a>
+      <a href="{% url 'web:web-export-json' %}" class="btn-secondary text-sm">Export JSON</a>
+      <a href="{% url 'web:web-export-csv' %}" class="btn-secondary text-sm">Export CSV</a>
+    </div>
   </section>
 </div>
 {% endblock %}

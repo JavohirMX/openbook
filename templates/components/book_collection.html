@@ -1,0 +1,12 @@
+{% if book_view == "grid" %}
+{% include "components/book_collections/grid.html" %}
+{% elif book_view == "compact" %}
+{% include "components/book_collections/compact.html" %}
+{% elif book_view == "table" %}
+{% include "components/book_collections/table.html" %}
+{% else %}
+{% include "components/book_collections/list.html" %}
+{% endif %}
+{% if show_pagination %}
+{% include "components/book_collection_pagination.html" %}
+{% endif %}

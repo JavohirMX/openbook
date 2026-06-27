@@ -1,14 +1,16 @@
-<h3 class="section-title mb-3">Shelves</h3>
-<p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Want to Read, Currently Reading, and Read are set via reading status above. Use custom shelves below for tags.</p>
+<h3 class="section-title mb-3 text-base" title="Custom tags — reading status shelves are set above">
+  Shelves
+  <span class="sr-only">Custom tags — reading status shelves are set above</span>
+</h3>
 <div class="flex flex-wrap gap-2 mb-4">
   {% for shelf in book_shelves %}
-  <span class="badge-tag inline-flex items-center gap-2 text-sm px-3 py-1">
+  <span class="badge-tag inline-flex items-center gap-1 text-xs px-2 py-0.5">
     {{ shelf.name }}
     <form method="post" action="{% url 'web:book-unshelve' book.pk %}" class="inline"
           hx-post="{% url 'web:book-unshelve' book.pk %}" hx-target="#shelves-section" hx-swap="innerHTML">
       {% csrf_token %}
       <input type="hidden" name="shelf_id" value="{{ shelf.pk }}">
-      <button type="submit" class="min-h-11 px-2 text-sm text-neutral-600 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400" aria-label="Remove from {{ shelf.name }}">Remove</button>
+      <button type="submit" class="px-1 text-neutral-600 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400" aria-label="Remove from {{ shelf.name }}">×</button>
     </form>
   </span>
   {% empty %}

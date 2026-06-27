@@ -1,7 +1,20 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ title }} — openbook{% endblock %}
+{% block extra_head %}
+<script src="{% static 'books/barcode.js' %}" defer></script>
+{% endblock %}
 {% block content %}
 <h1 class="page-title mb-6">{{ title }}</h1>
+
+<div class="surface-padded max-w-2xl mb-4">
+  <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1" for="epub-file-input">EPUB / OPF metadata</label>
+  <form hx-post="{% url 'web:book-epub-metadata' %}" hx-target="#book-form-fields" hx-encoding="multipart/form-data" class="flex gap-2 items-center">
+    {% csrf_token %}
+    <input type="file" name="epub_file" id="epub-file-input" accept=".epub,.opf,application/epub+zip" class="file-input text-sm flex-1">
+    <button type="submit" class="btn-secondary text-sm shrink-0">Import metadata</button>
+  </form>
+</div>
 
 <form method="post" class="surface-padded max-w-2xl" data-disable-on-submit>
   {% csrf_token %}
@@ -15,9 +28,12 @@
   </div>
   <div class="mb-4">
     <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1" for="isbn-lookup-input">ISBN (lookup)</label>
-    <input type="text" name="isbn" id="isbn-lookup-input" value="{{ form.isbn.value|default:'' }}"
-           class="input"
-           hx-get="{% url 'web:book-lookup' %}" hx-trigger="change delay:500ms" hx-include="#isbn-lookup-input" hx-target="#lookup-result" hx-indicator="#lookup-loading">
+    <div class="flex gap-2">
+      <input type="text" name="isbn" id="isbn-lookup-input" value="{{ form.isbn.value|default:'' }}"
+             class="input flex-1"
+             hx-get="{% url 'web:book-lookup' %}" hx-trigger="change delay:500ms" hx-include="#isbn-lookup-input" hx-target="#lookup-result" hx-indicator="#lookup-loading">
+      <button type="button" id="barcode-scan-btn" class="btn-secondary text-sm shrink-0">Scan barcode</button>
+    </div>
     <div id="lookup-loading" class="htmx-indicator text-sm text-neutral-600 dark:text-neutral-400 mt-2">Looking up…</div>
     <div id="lookup-result" class="mt-2 text-sm text-neutral-600 dark:text-neutral-400"></div>
   </div>

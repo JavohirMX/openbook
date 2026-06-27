@@ -7,7 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.factories import UserFactory
-from books.import_jobs import create_isbn_job
+from books.factories import BookFactory
+from books.import_jobs import create_isbn_job, create_metadata_backfill_job
 from books.import_worker import (
     drain_pending_jobs,
     reclaim_stale_running_jobs,
@@ -96,6 +97,64 @@ def test_reclaim_stale_running_jobs(user):
     job.refresh_from_db()
     assert job.status == ImportJobStatus.PENDING
     assert job.started_at is None
+
+
+@pytest.mark.django_db
+def test_reclaim_stale_finalizes_cancel_requested(user):
+    book = BookFactory()
+    job = create_metadata_backfill_job(user, [str(book.pk)])
+    job.status = ImportJobStatus.RUNNING
+    job.cancel_requested = True
+    job.cancel_requested_at = timezone.now() - timedelta(minutes=3)
+    job.started_at = timezone.now() - timedelta(minutes=31)
+    job.save(
+        update_fields=["status", "cancel_requested", "cancel_requested_at", "started_at"]
+    )
+
+    reclaimed = reclaim_stale_running_jobs()
+    assert reclaimed == 1
+    job.refresh_from_db()
+    assert job.status == ImportJobStatus.CANCELLED
+    assert job.cancel_requested is False
+    assert job.cancel_requested_at is None
+    assert job.finished_at is not None
+
+
+@pytest.mark.django_db
+def test_reclaim_stale_keeps_recent_cancel_requested(user):
+    book = BookFactory()
+    job = create_metadata_backfill_job(user, [str(book.pk)])
+    job.status = ImportJobStatus.RUNNING
+    job.cancel_requested = True
+    job.cancel_requested_at = timezone.now() - timedelta(seconds=30)
+    job.started_at = timezone.now() - timedelta(minutes=31)
+    job.save(
+        update_fields=["status", "cancel_requested", "cancel_requested_at", "started_at"]
+    )
+
+    reclaimed = reclaim_stale_running_jobs()
+    assert reclaimed == 0
+    job.refresh_from_db()
+    assert job.status == ImportJobStatus.RUNNING
+    assert job.cancel_requested is True
+
+
+@pytest.mark.django_db
+def test_reclaim_stale_finalizes_cancel_requested_without_timestamp(user):
+    book = BookFactory()
+    job = create_metadata_backfill_job(user, [str(book.pk)])
+    job.status = ImportJobStatus.RUNNING
+    job.cancel_requested = True
+    job.cancel_requested_at = None
+    job.started_at = timezone.now() - timedelta(minutes=31)
+    job.save(
+        update_fields=["status", "cancel_requested", "cancel_requested_at", "started_at"]
+    )
+
+    reclaimed = reclaim_stale_running_jobs()
+    assert reclaimed == 1
+    job.refresh_from_db()
+    assert job.status == ImportJobStatus.CANCELLED
 
 
 @pytest.mark.django_db

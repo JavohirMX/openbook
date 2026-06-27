@@ -42,7 +42,7 @@ One account per instance. No open registration. Visit `/setup/` on first run to 
 
 - Import from a Goodreads CSV export or an ISBN list (background job queue with live status)
 - Export your full library as JSON (full fidelity) or CSV (Goodreads-compatible for round-trip)
-- **Library Tools** (`/library-tools/`) — health summary (missing covers, authors, ISBNs, etc.), bulk metadata backfill for books with gaps, clear metadata lookup cache, and per-book **Refresh metadata** on book detail
+- **Library Tools** (`/library-tools/`) — health summary, bulk metadata backfill (Open Library + Google Books + Wikidata), pending match review queue, clear metadata cache, and per-book **Refresh metadata** on book detail
 - No third-party analytics, no lock-in
 
 ### Built for automation
@@ -143,7 +143,7 @@ Visit http://localhost:8000/setup/ to create your account.
 
 **Import jobs:** With `IMPORT_JOB_AUTO_PROCESS=false` on the web container (Compose default), the `worker` service drains the queue. Local `runserver` auto-processes jobs in a background thread instead.
 
-**Metadata enrichment:** Set `OPENLIBRARY_CONTACT_EMAIL` in your environment for identified Open Library requests (3 req/s). Goodreads CSV imports skip external lookups by default; set `IMPORT_GOODREADS_ENRICH_METADATA=true` to backfill covers and genres during import. After import, use **Library Tools** (`/library-tools/`) to fill missing metadata for existing books (ISBN required; only empty fields are updated—existing data is never overwritten).
+**Metadata enrichment:** Set `OPENLIBRARY_CONTACT_EMAIL` for identified Open Library requests (3 req/s). Goodreads CSV imports enrich metadata by default (`IMPORT_GOODREADS_ENRICH_METADATA=true`) from Open Library, Google Books, and Wikidata. Books without ISBN use title+author search; uncertain matches appear on **Library Tools** for review. Bulk backfill fills only empty fields; **Refresh metadata** on a book detail page can overwrite cover, pages, authors, genres, and other provider fields.
 
 **Production:** Use the repo's [docker-compose.yml](docker-compose.yml) with your `.env` (`SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS`). Ensure the external `web` Docker network exists before `docker compose up`.
 

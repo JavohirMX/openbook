@@ -4,11 +4,14 @@ import re
 import time
 import unicodedata
 from dataclasses import dataclass, field
+from datetime import date, datetime, time as dt_time
+from decimal import Decimal, InvalidOperation
 
 from collections.abc import Callable
 
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from books.covers import download_cover
 from books.genre_normalize import METADATA_GENRE_LIMIT
@@ -32,6 +35,7 @@ from books.services import (
     attach_genres_to_book,
     create_reading_log_for_book,
     get_or_create_genres,
+    get_or_create_series,
 )
 
 
@@ -100,6 +104,8 @@ def _create_book_from_data(data: dict, metadata: dict | None = None) -> Book:
     authors = data.get("authors") or meta.get("authors") or []
     if isinstance(authors, str):
         authors = [a.strip() for a in authors.split(",") if a.strip()]
+    if not authors and data.get("author"):
+        authors = [data["author"]]
     primary_author = authors[0] if authors else data.get("author", "")
 
     dup = _find_duplicate(isbn_13, isbn_10, title, primary_author)
@@ -117,6 +123,12 @@ def _create_book_from_data(data: dict, metadata: dict | None = None) -> Book:
         description=data.get("description") or meta.get("description"),
         cover_url=data.get("cover_url") or meta.get("cover_url"),
         language=data.get("language") or meta.get("language") or "en",
+        openlibrary_work_id=meta.get("openlibrary_work_id"),
+        openlibrary_edition_key=meta.get("openlibrary_edition_key"),
+        google_books_id=meta.get("google_books_id"),
+        wikidata_id=meta.get("wikidata_id"),
+        hardcover_edition_id=meta.get("hardcover_edition_id"),
+        metadata_source_summary=meta.get("source_summary"),
     )
 
     if authors:
@@ -129,6 +141,12 @@ def _create_book_from_data(data: dict, metadata: dict | None = None) -> Book:
         genres = get_or_create_genres(genre_names[:METADATA_GENRE_LIMIT], GenreSource.OPEN_LIBRARY)
         attach_genres_to_book(book, genres)
 
+    series_name = data.get("series_name")
+    if series_name:
+        book.series = get_or_create_series(series_name)
+        book.series_position = data.get("series_position")
+        book.save(update_fields=["series", "series_position"])
+
     create_reading_log_for_book(book)
 
     if book.cover_url:
@@ -138,6 +156,8 @@ def _create_book_from_data(data: dict, metadata: dict | None = None) -> Book:
     if status:
         log = book.reading_log
         update_reading_log(log, {"status": status})
+
+    _apply_goodreads_import_dates(book, data)
 
     rating = data.get("rating")
     if rating:
@@ -150,6 +170,7 @@ def _create_book_from_data(data: dict, metadata: dict | None = None) -> Book:
 
 
 ProgressCallback = Callable[[int, int], None]
+ShouldStop = Callable[[], bool] | None
 
 logger = logging.getLogger(__name__)
 
@@ -166,11 +187,14 @@ def _sleep_after_import_lookup() -> None:
         time.sleep(delay)
 
 
-def _lookup_metadata_for_import(service: MetadataService, isbn: str) -> dict:
+def _lookup_metadata_for_import(service: MetadataService, parsed: dict) -> dict:
+    from books.metadata_match import lookup_metadata_for_import
+
     try:
-        return service.lookup_isbn(isbn, import_context=True)
+        return lookup_metadata_for_import(parsed, service=service, import_context=True)
     except Exception:
-        logger.info("Metadata enrichment skipped for %s", isbn)
+        isbn = parsed.get("isbn_13") or parsed.get("isbn_10")
+        logger.info("Metadata enrichment skipped for %s", isbn or parsed.get("title"))
         return {}
     finally:
         _sleep_after_import_lookup()
@@ -179,7 +203,9 @@ def _lookup_metadata_for_import(service: MetadataService, isbn: str) -> dict:
 def _should_enrich_goodreads_row(parsed: dict) -> bool:
     if not getattr(settings, "IMPORT_GOODREADS_ENRICH_METADATA", False):
         return False
-    return bool(parsed.get("isbn_13") or parsed.get("isbn_10"))
+    if parsed.get("isbn_13") or parsed.get("isbn_10"):
+        return True
+    return bool(parsed.get("title") and parsed.get("author"))
 
 
 def import_isbns(
@@ -198,7 +224,13 @@ def import_isbns(
                 if _find_duplicate(isbn_13, isbn_10):
                     result.skipped += 1
                     continue
-                meta = service.lookup_isbn(isbn, import_context=True)
+                from books.metadata_match import lookup_metadata_for_import
+
+                meta = lookup_metadata_for_import(
+                    {"isbn_13": isbn_13, "isbn_10": isbn_10},
+                    service=service,
+                    import_context=True,
+                )
                 _sleep_after_import_lookup()
                 if not meta.get("title"):
                     result.failed += 1
@@ -222,6 +254,42 @@ def import_isbns(
     return result
 
 
+def _parse_goodreads_date(value: str) -> date | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    for fmt in ("%Y/%m/%d", "%Y-%m-%d", "%m/%d/%Y", "%d %b %Y"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _apply_goodreads_import_dates(book: Book, data: dict) -> None:
+    date_added = data.get("date_added")
+    if date_added:
+        created_at = datetime.combine(date_added, dt_time(hour=12))
+        if settings.USE_TZ:
+            created_at = timezone.make_aware(created_at, timezone.get_current_timezone())
+        Book.objects.filter(pk=book.pk).update(created_at=created_at)
+
+    date_read = data.get("date_read")
+    if not date_read:
+        return
+    try:
+        log = book.reading_log
+    except ReadingLog.DoesNotExist:
+        return
+    if log.status == ReadingStatus.FINISHED:
+        log.finished_at = date_read
+        if not log.started_at:
+            log.started_at = date_read
+        if log.read_count < 1:
+            log.read_count = 1
+        log.save(update_fields=["finished_at", "started_at", "read_count"])
+
+
 def _parse_goodreads_isbn(value: str) -> str | None:
     if not value:
         return None
@@ -239,6 +307,33 @@ def _parse_goodreads_isbn(value: str) -> str | None:
     if len(cleaned) == 10:
         return cleaned.upper()
     return None
+
+
+def _parse_series_position(value: str) -> Decimal | None:
+    value = (value or "").strip().lstrip("#")
+    if not value:
+        return None
+    try:
+        return Decimal(value)
+    except InvalidOperation:
+        return None
+
+
+def _parse_goodreads_series(row: dict) -> tuple[str | None, Decimal | None]:
+    series_name = None
+    for key in ("Series", "series"):
+        if key in row and row[key]:
+            series_name = row[key].strip() or None
+            if series_name:
+                break
+
+    position = None
+    for key in ("#", "# In Series", "Series Position", "Book Num", "Book Number"):
+        if key in row and row[key]:
+            position = _parse_series_position(row[key])
+            if position is not None:
+                break
+    return series_name, position
 
 
 def _parse_goodreads_row(row: dict) -> dict:
@@ -266,9 +361,17 @@ def _parse_goodreads_row(row: dict) -> dict:
         if s.strip() and s.strip().lower() not in EXCLUSIVE_SHELVES
     ]
 
+    additional_raw = row.get("Additional Authors", "").strip()
+    additional_authors = [a.strip() for a in additional_raw.split(",") if a.strip()]
+    authors = [author] if author else []
+    authors.extend(a for a in additional_authors if a not in authors)
+
+    series_name, series_position = _parse_goodreads_series(row)
+
     return {
         "title": title,
         "author": author,
+        "authors": authors,
         "isbn_13": isbn_13,
         "isbn_10": isbn_10,
         "pages": pages_int,
@@ -278,6 +381,10 @@ def _parse_goodreads_row(row: dict) -> dict:
         "status": status,
         "review_text": row.get("My Review", "").strip() or None,
         "shelf_names": shelf_names,
+        "date_read": _parse_goodreads_date(row.get("Date Read", "")),
+        "date_added": _parse_goodreads_date(row.get("Date Added", "")),
+        "series_name": series_name,
+        "series_position": series_position,
     }
 
 
@@ -289,6 +396,10 @@ def _serialize_preview_row(parsed: dict) -> dict:
     status_value = row.get("status")
     if status_value:
         row["status_display"] = dict(ReadingStatus.choices).get(status_value, status_value)
+    for key in ("date_read", "date_added"):
+        value = row.get(key)
+        if isinstance(value, date):
+            row[key] = value.isoformat()
     return row
 
 
@@ -337,6 +448,7 @@ def _read_csv_rows(file) -> list[dict]:
 def import_goodreads_csv(
     file,
     progress_callback: ProgressCallback | None = None,
+    should_stop: ShouldStop = None,
 ) -> ImportResult:
     result = ImportResult()
     service = MetadataService()
@@ -363,8 +475,7 @@ def import_goodreads_csv(
 
                 meta = {}
                 if _should_enrich_goodreads_row(parsed):
-                    isbn = parsed.get("isbn_13") or parsed.get("isbn_10")
-                    meta = _lookup_metadata_for_import(service, isbn)
+                    meta = _lookup_metadata_for_import(service, parsed)
 
                 book = _create_book_from_data(parsed, meta)
 
@@ -379,6 +490,7 @@ def import_goodreads_csv(
 
                 if parsed.get("status"):
                     update_reading_log(book.reading_log, {"status": parsed["status"]})
+                    _apply_goodreads_import_dates(book, parsed)
 
                 for shelf_name in parsed.get("shelf_names", []):
                     shelf, _ = Shelf.objects.get_or_create(name=shelf_name)
@@ -397,6 +509,202 @@ def import_goodreads_csv(
         finally:
             if progress_callback:
                 progress_callback(index, total)
+            if should_stop and should_stop():
+                break
+
+    return result
+
+
+STORYGRAPH_STATUS_MAP = {
+    "read": ReadingStatus.FINISHED,
+    "currently reading": ReadingStatus.READING,
+    "to-read": ReadingStatus.NOT_STARTED,
+    "did-not-finish": ReadingStatus.ABANDONED,
+}
+
+
+def _parse_storygraph_isbn(value: str) -> tuple[str | None, str | None]:
+    if not value:
+        return None, None
+    cleaned = re.sub(r"[^0-9Xx]", "", value.strip())
+    if len(cleaned) == 13 and cleaned.isdigit():
+        return cleaned, None
+    if len(cleaned) == 10:
+        return None, cleaned.upper()
+    return None, None
+
+
+def _parse_storygraph_rating(value: str) -> int | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        rating = float(value)
+    except ValueError:
+        return None
+    if rating <= 0:
+        return None
+    return max(1, min(5, int(rating + 0.5)))
+
+
+def _parse_storygraph_date(value: str) -> date | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_storygraph_dates_read(value: str) -> date | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    if "-" in value:
+        end_part = value.split("-")[-1].strip()
+        if end_part:
+            parsed = _parse_storygraph_date(end_part)
+            if parsed:
+                return parsed
+        start_part = value.split("-")[0].strip()
+        return _parse_storygraph_date(start_part)
+    return _parse_storygraph_date(value)
+
+
+def _parse_storygraph_row(row: dict) -> dict:
+    title = row.get("Title", "").strip()
+    authors_raw = row.get("Authors", "").strip()
+    authors = [a.strip() for a in authors_raw.split(",") if a.strip()]
+    author = authors[0] if authors else ""
+
+    isbn_13, isbn_10 = _parse_storygraph_isbn(row.get("ISBN/UID", ""))
+
+    status_raw = row.get("Read Status", "").strip().lower()
+    status = STORYGRAPH_STATUS_MAP.get(status_raw)
+
+    rating = _parse_storygraph_rating(row.get("Star Rating", ""))
+
+    tags_raw = row.get("Tags", "").strip()
+    shelf_names = [t.strip().replace("-", " ") for t in tags_raw.split(",") if t.strip()]
+
+    date_read = _parse_storygraph_dates_read(row.get("Dates Read", ""))
+    if not date_read:
+        date_read = _parse_storygraph_date(row.get("Last Date Read", ""))
+
+    return {
+        "title": title,
+        "author": author,
+        "authors": authors,
+        "isbn_13": isbn_13,
+        "isbn_10": isbn_10,
+        "rating": rating,
+        "status": status,
+        "review_text": row.get("Review", "").strip() or None,
+        "shelf_names": shelf_names,
+        "date_read": date_read,
+        "date_added": _parse_storygraph_date(row.get("Date Added", "")),
+    }
+
+
+def detect_csv_import_kind(file) -> str:
+    from books.models import ImportJobKind
+
+    rows = _read_csv_rows(file)
+    if not rows:
+        return ImportJobKind.GOODREADS_CSV
+    headers = set(rows[0].keys())
+    if "Read Status" in headers or ("Authors" in headers and "Author" not in headers):
+        return ImportJobKind.STORYGRAPH_CSV
+    return ImportJobKind.GOODREADS_CSV
+
+
+def preview_storygraph_csv(file) -> list[dict]:
+    preview = []
+    for row in _read_csv_rows(file):
+        parsed = _parse_storygraph_row(row)
+        if not parsed["title"]:
+            continue
+        dup = _find_duplicate(
+            parsed.get("isbn_13"),
+            parsed.get("isbn_10"),
+            parsed["title"],
+            parsed.get("author"),
+        )
+        parsed["is_duplicate"] = dup is not None
+        parsed["duplicate_id"] = str(dup.id) if dup else None
+        preview.append(_serialize_preview_row(parsed))
+    return preview
+
+
+def import_storygraph_csv(
+    file,
+    progress_callback: ProgressCallback | None = None,
+    should_stop: ShouldStop = None,
+) -> ImportResult:
+    result = ImportResult()
+    service = MetadataService()
+    all_rows = _read_csv_rows(file)
+    total = len(all_rows)
+
+    for index, row in enumerate(all_rows, start=1):
+        parsed = _parse_storygraph_row(row)
+        if not parsed["title"]:
+            result.failed += 1
+            if progress_callback:
+                progress_callback(index, total)
+            continue
+        try:
+            with transaction.atomic():
+                if _find_duplicate(
+                    parsed.get("isbn_13"),
+                    parsed.get("isbn_10"),
+                    parsed["title"],
+                    parsed.get("author"),
+                ):
+                    result.skipped += 1
+                    continue
+
+                meta = {}
+                if _should_enrich_goodreads_row(parsed):
+                    meta = _lookup_metadata_for_import(service, parsed)
+
+                book = _create_book_from_data(parsed, meta)
+
+                if parsed.get("review_text") or parsed.get("rating"):
+                    Review.objects.update_or_create(
+                        book=book,
+                        defaults={
+                            "rating": parsed.get("rating"),
+                            "review_text": parsed.get("review_text"),
+                        },
+                    )
+
+                if parsed.get("status"):
+                    update_reading_log(book.reading_log, {"status": parsed["status"]})
+                    _apply_goodreads_import_dates(book, parsed)
+
+                for shelf_name in parsed.get("shelf_names", []):
+                    shelf, _ = Shelf.objects.get_or_create(name=shelf_name)
+                    BookshelfItem.objects.get_or_create(book=book, shelf=shelf)
+
+                result.added += 1
+        except ValueError as exc:
+            if str(exc).startswith("duplicate:"):
+                result.skipped += 1
+            else:
+                result.failed += 1
+                result.errors.append(str(exc))
+        except Exception as exc:
+            result.failed += 1
+            result.errors.append(str(exc))
+        finally:
+            if progress_callback:
+                progress_callback(index, total)
+            if should_stop and should_stop():
+                break
 
     return result
 
@@ -439,8 +747,9 @@ def export_csv() -> str:
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "Title", "Author", "ISBN", "ISBN13", "My Rating", "My Review",
+        "Title", "Author", "Additional Authors", "ISBN", "ISBN13", "My Rating", "My Review",
         "Number of Pages", "Year Published", "Publisher", "Exclusive Shelf", "Bookshelves",
+        "Date Read", "Date Added",
     ])
 
     books = Book.objects.prefetch_related("authors", "genres").select_related("reading_log", "review")
@@ -451,16 +760,23 @@ def export_csv() -> str:
     }
 
     for book in books:
-        author = book.authors.order_by("book_authors__position").first()
+        ordered_authors = list(book.authors.order_by("book_authors__position"))
+        author = ordered_authors[0] if ordered_authors else None
+        additional = ", ".join(a.name for a in ordered_authors[1:])
         log = getattr(book, "reading_log", None)
         review = getattr(book, "review", None)
         exclusive = status_to_shelf.get(log.status if log else ReadingStatus.NOT_STARTED, "to-read")
         shelves = ", ".join(
             Shelf.objects.filter(bookshelf_items__book=book).values_list("name", flat=True)
         )
+        date_read = ""
+        if log and log.finished_at:
+            date_read = log.finished_at.strftime("%Y/%m/%d")
+        date_added = book.created_at.strftime("%Y/%m/%d") if book.created_at else ""
         writer.writerow([
             book.title,
             author.name if author else "",
+            additional,
             f'="{book.isbn_10}"' if book.isbn_10 else "",
             f'="{book.isbn_13}"' if book.isbn_13 else "",
             review.rating if review and review.rating else "0",
@@ -470,6 +786,8 @@ def export_csv() -> str:
             book.publisher or "",
             exclusive,
             shelves,
+            date_read,
+            date_added,
         ])
 
     return output.getvalue()

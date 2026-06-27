@@ -38,6 +38,22 @@ def book_provider_links(book: Book) -> list[dict[str, str]]:
             }
         )
 
+    if book.wikidata_id:
+        links.append(
+            {
+                "name": "Wikidata",
+                "url": f"https://www.wikidata.org/wiki/{book.wikidata_id}",
+            }
+        )
+
+    if book.hardcover_edition_id:
+        links.append(
+            {
+                "name": "Hardcover",
+                "url": f"https://hardcover.app/editions/{book.hardcover_edition_id}",
+            }
+        )
+
     isbn = book.isbn_13 or book.isbn_10
     if isbn:
         links.append(

@@ -2,30 +2,32 @@
 {% block title %}{{ shelf.name }} — openbook{% endblock %}
 {% block content %}
 <a href="{% url 'web:shelf-list' %}" class="link text-sm">&larr; All shelves</a>
-<h1 class="page-title mt-2 mb-6">{{ shelf.name }}</h1>
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2 mb-6">
+  <h1 class="page-title">{{ shelf.name }}</h1>
+  {% include "components/book_view_toggle.html" %}
+</div>
 {% if shelf.description %}<p class="text-neutral-600 dark:text-neutral-400 mb-4">{{ shelf.description }}</p>{% endif %}
 
+<div data-book-view-page>
 {% if books %}
-<ul class="surface-list">
-  {% for book in books %}
-  <li class="px-4 py-4 flex items-center justify-between gap-4">
-    <a href="{% url 'web:book-detail' book.pk %}" class="flex items-center gap-3 min-w-0 flex-1">
-      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-10" height="h-14" %}
-      <div class="min-w-0">
-        <span class="font-medium text-neutral-950 dark:text-neutral-100 block truncate">{{ book.title }}</span>
-        <span class="text-sm text-neutral-600 dark:text-neutral-400">{% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</span>
-      </div>
-    </a>
-    <form method="post" action="{% url 'web:book-unshelve' book.pk %}">{% csrf_token %}
-      <input type="hidden" name="shelf_id" value="{{ shelf.pk }}">
-      <button type="submit" class="btn-secondary text-sm px-3">Remove</button>
-    </form>
-  </li>
-  {% endfor %}
-</ul>
+{% include "components/book_collection.html" with books=books actions_template="shelves/partials/unshelve_action.html" show_genres=False %}
 {% else %}
 {% include "components/empty_state.html" with title="No books on this shelf" description="Add books from their detail page." %}
 {% endif %}
+</div>
+
+<section class="mt-10 border-t border-neutral-200 dark:border-neutral-800 pt-8">
+  <h2 class="section-title mb-4">Edit shelf</h2>
+  <form method="post" action="{% url 'web:shelf-edit' shelf.pk %}" class="max-w-md" data-disable-on-submit>{% csrf_token %}
+    {% for field in shelf_form %}
+    <div class="mb-3">
+      <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn-primary text-sm" data-loading-text="Saving…">Save changes</button>
+  </form>
+</section>
 
 <form method="post" action="{% url 'web:shelf-delete' shelf.pk %}" class="mt-8" onsubmit="return confirm('Delete this shelf? Books will not be deleted.')">{% csrf_token %}
   <button type="submit" class="btn-destructive text-sm">Delete shelf</button>

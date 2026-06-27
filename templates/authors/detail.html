@@ -2,8 +2,22 @@
 {% block title %}{{ author.name }} — openbook{% endblock %}
 {% block content %}
 <a href="{% url 'web:author-list' %}" class="link text-sm">&larr; All authors</a>
-<h1 class="page-title mt-2 mb-2">{{ author.name }}</h1>
-<p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">{{ author.book_count }} book{{ author.book_count|pluralize }} in your library</p>
+<div class="flex flex-wrap items-start gap-6 mt-2 mb-6">
+  {% if author.photo_url %}
+  <img src="{{ author.photo_url }}" alt="" class="w-24 h-24 object-cover border border-neutral-200 dark:border-neutral-700">
+  {% endif %}
+  <div class="min-w-0 flex-1">
+    <h1 class="page-title mb-2">{{ author.name }}</h1>
+    <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-3">{{ author.book_count }} book{{ author.book_count|pluralize }} in your library</p>
+    <form method="post" action="{% url 'web:author-refresh-wikipedia' author.pk %}" class="inline">{% csrf_token %}
+      <button type="submit" class="btn-secondary text-sm">Refresh from Wikipedia</button>
+    </form>
+    {% if author.wikipedia_url %}<a href="{{ author.wikipedia_url }}" class="link text-sm ml-3" target="_blank" rel="noopener noreferrer">Wikipedia</a>{% endif %}
+  </div>
+</div>
+{% if author.bio %}
+<p class="text-sm text-neutral-600 dark:text-neutral-400 mb-8 max-w-prose whitespace-pre-wrap">{{ author.bio }}</p>
+{% endif %}
 
 {% if books %}
 <ul class="surface-list">

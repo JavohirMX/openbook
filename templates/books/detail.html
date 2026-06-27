@@ -1,53 +1,80 @@
 {% extends "base.html" %}
 {% block title %}{{ book.title }} — openbook{% endblock %}
 {% block content %}
-<div class="mb-6">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
   <a href="{% url 'web:book-list' %}" class="link text-sm">&larr; Back to books</a>
+  <div class="flex flex-wrap gap-3">
+    <a href="{% url 'web:book-edit' book.pk %}" class="btn-secondary text-sm">Edit</a>
+    <form method="post" action="{% url 'web:book-delete' book.pk %}" onsubmit="return confirm('Move to trash?')">{% csrf_token %}
+      <button type="submit" class="btn-destructive text-sm">Delete</button>
+    </form>
+  </div>
 </div>
 
-<div class="surface-padded space-y-8">
-  <div class="flex flex-col md:flex-row gap-8">
-    {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-40" height="h-60" extra_class="mx-auto md:mx-0" %}
-    <div class="flex-1 min-w-0">
-      <h1 class="page-title">{{ book.title }}</h1>
-      {% if book.subtitle %}<p class="text-neutral-600 dark:text-neutral-400 mt-2">{{ book.subtitle }}</p>{% endif %}
-      <p class="text-neutral-600 dark:text-neutral-400 mt-2">{% for a in book.authors.all %}<a href="{% url 'web:author-detail' a.pk %}" class="link">{{ a.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</p>
-      <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400 space-y-1">
-        {% if book.isbn_13 %}<p>ISBN-13: {{ book.isbn_13 }}</p>{% endif %}
-        {% if book.pages %}<p>Pages: {{ book.pages }}</p>{% endif %}
-        {% if book.published_year %}<p>Published: {{ book.published_year }}</p>{% endif %}
-        {% if book.publisher %}<p>Publisher: {{ book.publisher }}</p>{% endif %}
+<div class="space-y-6">
+  <div class="surface-padded">
+    <div class="flex flex-col lg:flex-row gap-8">
+      <div class="lg:sticky lg:top-8 lg:self-start shrink-0">
+        {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-40" height="h-60" extra_class="mx-auto lg:mx-0" %}
       </div>
-      {% if book.isbn_13 or book.isbn_10 %}
-      <form method="post" action="{% url 'web:book-refresh-metadata' book.pk %}" class="mt-4" data-disable-on-submit>
-        {% csrf_token %}
-        <button type="submit" class="btn-secondary text-sm" data-loading-text="Refreshing…">Refresh metadata</button>
-      </form>
-      {% endif %}
-      <div class="flex flex-wrap gap-2 mt-4">
-        {% for g in book.genres.all %}<a href="{% url 'web:genre-detail' g.slug %}" class="badge-tag hover:bg-neutral-200 dark:hover:bg-neutral-700">{{ g.name }}</a>{% endfor %}
+      <div class="flex-1 min-w-0">
+        <h1 class="page-title">{{ book.title }}</h1>
+        {% if book.subtitle %}<p class="text-neutral-600 dark:text-neutral-400 mt-2">{{ book.subtitle }}</p>{% endif %}
+        <p class="text-neutral-600 dark:text-neutral-400 mt-2">{% for a in book.authors.all %}<a href="{% url 'web:author-detail' a.pk %}" class="link">{{ a.name }}</a>{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</p>
+
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          {% if review_form.instance.rating %}
+          <a href="#review-section" class="inline-flex items-center gap-2 text-sm hover:opacity-80 transition-opacity" aria-label="My rating {{ review_form.instance.rating }} of 5 — edit review">
+            <span class="flex items-center gap-0.5" aria-hidden="true">
+              {% for i in "12345" %}
+              <svg class="w-4 h-4 {% if forloop.counter <= review_form.instance.rating %}text-neutral-950 dark:text-neutral-100{% else %}text-neutral-300 dark:text-neutral-600{% endif %}" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>
+              {% endfor %}
+            </span>
+            <span class="text-neutral-600 dark:text-neutral-400">My rating: {{ review_form.instance.rating }} / 5</span>
+          </a>
+          {% else %}
+          <a href="#review-section" class="text-sm text-neutral-600 dark:text-neutral-400 link">No rating yet</a>
+          {% endif %}
+        </div>
+
+        {% if reading_log %}
+        <p class="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
+          {{ reading_log.get_status_display }}
+          {% if reading_log.status == 'reading' %}
+            {% if reading_log.progress_percent is not None %} · {{ reading_log.progress_percent }}%{% endif %}
+            {% if reading_log.current_page and book.pages %} · page {{ reading_log.current_page }} of {{ book.pages }}{% elif reading_log.current_page %} · page {{ reading_log.current_page }}{% endif %}
+          {% endif %}
+        </p>
+        {% endif %}
+
+        <div class="flex flex-wrap gap-2 mt-4">
+          {% if book.series %}
+          <a href="{% url 'web:series-detail' book.series.slug %}" class="badge-tag hover:bg-neutral-200 dark:hover:bg-neutral-700">
+            {{ book.series.name }}{% if book.series_position %} #{{ book.series_position }}{% endif %}
+          </a>
+          {% endif %}
+          {% for g in book.genres.all %}<a href="{% url 'web:genre-detail' g.slug %}" class="badge-tag hover:bg-neutral-200 dark:hover:bg-neutral-700">{{ g.name }}</a>{% endfor %}
+        </div>
+
+        {% if book.description %}
+        <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400 max-w-prose">
+          {% if book.description|length > 200 %}
+          <p class="whitespace-pre-wrap leading-relaxed">{{ book.description|truncatechars:200 }}</p>
+          <a href="#description-section" class="link text-sm mt-1 inline-block">Read full description</a>
+          {% else %}
+          <p class="whitespace-pre-wrap leading-relaxed">{{ book.description }}</p>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
-      {% if provider_links %}
-      <div class="flex flex-wrap gap-3 mt-4">
-        {% for link in provider_links %}
-        <a href="{{ link.url }}" class="link text-sm" target="_blank" rel="noopener noreferrer">{{ link.name }}</a>
-        {% endfor %}
-      </div>
-      {% endif %}
     </div>
   </div>
 
-  <div id="reading-section" class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
-    {% include "books/partials/reading_section.html" %}
-  </div>
+  {% include "books/partials/your_reading_card.html" %}
 
-  <div id="shelves-section" class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
-    {% include "books/partials/shelves_section.html" %}
-  </div>
-
-  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
-    <h3 class="section-title mb-2">My Review</h3>
-    <p id="rating-summary" class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+  <div id="review-section" class="surface-padded">
+    <h2 class="section-title mb-4">My Review</h2>
+    <p id="rating-summary" class="sr-only">
       {% if review_form.instance.rating %}My rating: {{ review_form.instance.rating }} / 5{% else %}No rating yet{% endif %}
     </p>
     <form method="post" action="{% url 'web:book-review' book.pk %}" data-disable-on-submit>
@@ -59,29 +86,79 @@
         {{ review_form.review_text }}
       </div>
       <button type="submit" class="btn-primary mt-4 text-sm" data-loading-text="Saving…">Save Review</button>
+      {% if review_form.instance.pk %}
+      <button type="submit" form="clear-review-form" class="btn-secondary mt-4 ml-2 text-sm">Clear review</button>
+      {% endif %}
     </form>
+    {% if review_form.instance.pk %}
+    <form id="clear-review-form" method="post" action="{% url 'web:book-review' book.pk %}" class="hidden">{% csrf_token %}
+      <input type="hidden" name="_method" value="DELETE">
+    </form>
+    {% endif %}
   </div>
 
-  {% if book.description %}
-  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
-    <h3 class="section-title mb-3">Description</h3>
+  {% if book.description and book.description|length > 200 %}
+  <div id="description-section" class="surface-padded">
+    <h2 class="section-title mb-3">Description</h2>
     <p class="text-neutral-600 dark:text-neutral-400 text-sm whitespace-pre-wrap leading-relaxed max-w-prose">{{ book.description }}</p>
   </div>
   {% endif %}
 
-  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
-    {% include "books/partials/reading_timeline.html" %}
+  <div class="surface-padded pt-0">
+    {% include "components/disclosure_section.html" with title="Book details" content_template="books/partials/book_details.html" open=False %}
+
+    {% include "components/disclosure_section.html" with title="Reading history" content_template="books/partials/reading_timeline.html" show_count=True count=reading_timeline|length open=reading_timeline %}
+
+    {% include "components/disclosure_section.html" with title="Quotes & highlights" content_template="books/partials/quotes_section.html" show_count=True count=quotes|length open=False %}
+
+    {% with note_text=note_form.instance.text|default:"" %}
+    {% include "components/disclosure_section.html" with title="Private note" content_template="books/partials/note_section.html" open=note_text %}
+    {% endwith %}
   </div>
 
-  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8">
-    {% include "books/partials/quotes_section.html" %}
-  </div>
-
-  <div class="border-t border-neutral-200 dark:border-neutral-800 pt-8 flex flex-wrap gap-3">
-    <a href="{% url 'web:book-edit' book.pk %}" class="btn-secondary text-sm">Edit</a>
-    <form method="post" action="{% url 'web:book-delete' book.pk %}" onsubmit="return confirm('Move to trash?')">{% csrf_token %}
-      <button type="submit" class="btn-destructive text-sm">Delete</button>
+  <div class="surface-padded mt-6">
+    <h2 class="section-title mb-3">Tags</h2>
+    <div class="flex flex-wrap gap-2 mb-4">
+      {% for tag in book_tags %}
+      <form method="post" action="{% url 'web:book-tag-remove' book.pk tag.pk %}" class="inline">{% csrf_token %}
+        <button type="submit" class="badge-tag">{{ tag.name }} ×</button>
+      </form>
+      {% empty %}
+      <p class="text-sm text-neutral-500 dark:text-neutral-400">No tags yet.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="{% url 'web:book-tag-add' book.pk %}" class="flex gap-2 max-w-md">{% csrf_token %}
+      <input type="text" name="tag_name" placeholder="mood, pace, owned…" class="input text-sm flex-1" list="tag-suggestions">
+      <datalist id="tag-suggestions">
+        {% for tag in all_book_tags %}<option value="{{ tag.name }}">{% endfor %}
+      </datalist>
+      <button type="submit" class="btn-secondary text-sm">Add tag</button>
     </form>
   </div>
+
+  {% if same_author_books or same_genre_books %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+    {% if same_author_books %}
+    <section class="surface-padded">
+      <h2 class="section-title mb-3">More by this author</h2>
+      <ul class="space-y-2 text-sm">
+        {% for b in same_author_books %}
+        <li><a href="{% url 'web:book-detail' b.pk %}" class="link">{{ b.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    {% if same_genre_books %}
+    <section class="surface-padded">
+      <h2 class="section-title mb-3">Same genre in your library</h2>
+      <ul class="space-y-2 text-sm">
+        {% for b in same_genre_books %}
+        <li><a href="{% url 'web:book-detail' b.pk %}" class="link">{{ b.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

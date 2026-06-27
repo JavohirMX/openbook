@@ -5,12 +5,17 @@ from books.models import (
     Book,
     BookAuthor,
     BookGenre,
+    BookNote,
     BookshelfItem,
     Genre,
+    MetadataMatchProposal,
+    MetadataMatchProposalStatus,
+    Quote,
     ReadingLog,
     ReadingProgress,
     ReadingStatus,
     Review,
+    Series,
     Shelf,
 )
 
@@ -20,6 +25,14 @@ class AuthorFactory(factory.django.DjangoModelFactory):
         model = Author
 
     name = factory.Faker("name")
+
+
+class SeriesFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Series
+
+    name = factory.Sequence(lambda n: f"Series {n}")
+    slug = factory.Sequence(lambda n: f"series-{n}")
 
 
 class BookFactory(factory.django.DjangoModelFactory):
@@ -68,6 +81,23 @@ class ReviewFactory(factory.django.DjangoModelFactory):
 
     book = factory.SubFactory(BookFactory)
     rating = 4
+    review_text = ""
+
+
+class QuoteFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Quote
+
+    book = factory.SubFactory(BookFactory)
+    text = factory.Faker("sentence")
+
+
+class BookNoteFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = BookNote
+
+    book = factory.SubFactory(BookFactory)
+    text = "Private note text"
 
 
 class BookGenreFactory(factory.django.DjangoModelFactory):
@@ -93,4 +123,22 @@ class ReadingProgressFactory(factory.django.DjangoModelFactory):
 
     book = factory.SubFactory(BookFactory)
     reading_log = factory.LazyAttribute(lambda obj: obj.book.reading_log)
-    progress_percent = 10
+
+
+class MetadataMatchProposalFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = MetadataMatchProposal
+
+    book = factory.SubFactory(BookFactory)
+    candidate = factory.LazyFunction(
+        lambda: {
+            "title": "Proposed Title",
+            "authors": ["Author One"],
+            "isbn_13": "9780143127741",
+            "cover_url": "https://example.com/cover.jpg",
+        }
+    )
+    score = 0.85
+    alternates = factory.LazyFunction(list)
+    status = MetadataMatchProposalStatus.PENDING
+    source_summary = "open_library+google_books"

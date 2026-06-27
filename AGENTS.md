@@ -25,7 +25,7 @@ openbook is a single-user, self-hosted book tracker. Read the docs in `docs/` be
 
 Imports run in the background via a database job queue. Local `runserver` auto-starts processing when jobs are queued (`IMPORT_JOB_AUTO_PROCESS=true` by default). Docker Compose disables auto-process on the web container and uses the `worker` service instead. Use **Process now** on a pending job or `process_import_jobs` to drain manually.
 
-**Metadata during import:** Goodreads CSV imports use CSV data only by default (`IMPORT_GOODREADS_ENRICH_METADATA=false`). Set `IMPORT_GOODREADS_ENRICH_METADATA=true` to backfill covers/genres via Open Library. Set `OPENLIBRARY_CONTACT_EMAIL` so requests use an identified User-Agent (`openbook/0.1.0 (you@example.com)`) for Open Library’s 3 req/s limit; without it, pacing defaults to 1 req/s. Override with `METADATA_IMPORT_DELAY_SECONDS` if needed.
+**Metadata during import:** Goodreads CSV imports enrich metadata from Open Library, Google Books, and Wikidata by default (`IMPORT_GOODREADS_ENRICH_METADATA=true`). Providers are queried in a **chain** (Open Library first; Google Books and Wikidata only when needed) to avoid Google rate limits during bulk import. Interactive lookups use a looser chain and may still call Google Books for missing description, year, or publisher. Set `OPENLIBRARY_CONTACT_EMAIL` so requests use an identified User-Agent (`openbook/0.1.0 (you@example.com)`) for Open Library’s 3 req/s limit; without it, pacing defaults to 1 req/s. Override with `METADATA_IMPORT_DELAY_SECONDS` if needed. Set `METADATA_LOOKUP_STRATEGY=parallel` to restore legacy merge-all behavior.
 
 Dependencies live in `pyproject.toml` + `uv.lock`. Do not add `requirements.txt`.
 

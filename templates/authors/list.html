@@ -19,6 +19,13 @@
   </li>
   {% endfor %}
 </ul>
+{% if page_obj.has_other_pages %}
+<nav class="flex justify-center gap-2 mt-6" aria-label="Author pagination">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}" class="btn-secondary text-sm">Previous</a>{% endif %}
+  <span class="inline-flex items-center text-sm text-neutral-600 dark:text-neutral-400 px-2">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}" class="btn-secondary text-sm">Next</a>{% endif %}
+</nav>
+{% endif %}
 {% else %}
 {% include "components/empty_state.html" with title="No authors found" description="Authors appear when you add books." %}
 {% endif %}

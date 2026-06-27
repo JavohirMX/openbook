@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import close_old_connections
+from django.db.models import Q
 from django.utils import timezone
 
 from books.import_jobs import claim_next_job, run_import_job
@@ -38,18 +39,44 @@ def process_one_pending_job() -> bool:
 
 
 def reclaim_stale_running_jobs() -> int:
+    now = timezone.now()
     stale_minutes = int(getattr(settings, "IMPORT_JOB_STALE_MINUTES", 30))
-    cutoff = timezone.now() - timedelta(minutes=stale_minutes)
-    updated = ImportJob.objects.filter(
+    if getattr(settings, "DEBUG", False):
+        stale_minutes = min(stale_minutes, int(getattr(settings, "IMPORT_JOB_DEBUG_STALE_MINUTES", 5)))
+    stale_cutoff = now - timedelta(minutes=stale_minutes)
+
+    cancel_finalize_seconds = int(
+        getattr(settings, "IMPORT_JOB_CANCEL_FINALIZE_SECONDS", 120)
+    )
+    cancel_cutoff = now - timedelta(seconds=cancel_finalize_seconds)
+
+    finalized = ImportJob.objects.filter(
         status=ImportJobStatus.RUNNING,
-        started_at__lt=cutoff,
+        cancel_requested=True,
+    ).filter(
+        Q(cancel_requested_at__lt=cancel_cutoff)
+        | Q(cancel_requested_at__isnull=True, started_at__lt=stale_cutoff)
+    ).update(
+        status=ImportJobStatus.CANCELLED,
+        cancel_requested=False,
+        cancel_requested_at=None,
+        finished_at=now,
+    )
+    if finalized:
+        logger.warning("Finalized %s cancelled import job(s) with no active worker", finalized)
+
+    reclaimed = ImportJob.objects.filter(
+        status=ImportJobStatus.RUNNING,
+        started_at__lt=stale_cutoff,
+        cancel_requested=False,
     ).update(
         status=ImportJobStatus.PENDING,
         started_at=None,
     )
-    if updated:
-        logger.warning("Reclaimed %s stale running import job(s)", updated)
-    return updated
+    if reclaimed:
+        logger.warning("Reclaimed %s stale running import job(s)", reclaimed)
+
+    return finalized + reclaimed
 
 
 def drain_pending_jobs() -> None:

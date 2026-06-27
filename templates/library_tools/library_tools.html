@@ -9,58 +9,206 @@
     <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
       <div>
         <dt class="text-neutral-500 dark:text-neutral-400">Total books</dt>
-        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.total_books }}</dd>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          <a href="{% url 'web:book-list' %}" class="link">{{ health.total_books }}</a>
+        </dd>
       </div>
       <div>
         <dt class="text-neutral-500 dark:text-neutral-400">Missing cover</dt>
-        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.missing_cover }}</dd>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          {% if health.missing_cover %}<a href="{% url 'web:book-list' %}?missing=cover" class="link">{{ health.missing_cover }}</a>{% else %}0{% endif %}
+        </dd>
       </div>
       <div>
         <dt class="text-neutral-500 dark:text-neutral-400">Missing pages</dt>
-        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.missing_pages }}</dd>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          {% if health.missing_pages %}<a href="{% url 'web:book-list' %}?missing=pages" class="link">{{ health.missing_pages }}</a>{% else %}0{% endif %}
+        </dd>
       </div>
       <div>
         <dt class="text-neutral-500 dark:text-neutral-400">No authors</dt>
-        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.no_authors }}</dd>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          {% if health.no_authors %}<a href="{% url 'web:book-list' %}?missing=authors" class="link">{{ health.no_authors }}</a>{% else %}0{% endif %}
+        </dd>
       </div>
       <div>
         <dt class="text-neutral-500 dark:text-neutral-400">No genres</dt>
-        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.no_genres }}</dd>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          {% if health.no_genres %}<a href="{% url 'web:book-list' %}?missing=genres" class="link">{{ health.no_genres }}</a>{% else %}0{% endif %}
+        </dd>
       </div>
       <div>
         <dt class="text-neutral-500 dark:text-neutral-400">No ISBN</dt>
-        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.no_isbn }}</dd>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          {% if health.no_isbn %}<a href="{% url 'web:book-list' %}?missing=isbn" class="link">{{ health.no_isbn }}</a>{% else %}0{% endif %}
+        </dd>
       </div>
       <div>
         <dt class="text-neutral-500 dark:text-neutral-400">Need metadata</dt>
-        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">{{ health.needing_metadata }}</dd>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          {% if health.needing_metadata %}<a href="{% url 'web:book-list' %}?missing=metadata" class="link">{{ health.needing_metadata }}</a>{% else %}0{% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="text-neutral-500 dark:text-neutral-400">Pending matches</dt>
+        <dd class="text-lg font-medium text-neutral-900 dark:text-neutral-100">
+          {% if health.pending_metadata_matches %}<a href="#pending-matches" class="link">{{ health.pending_metadata_matches }}</a>{% else %}0{% endif %}
+        </dd>
       </div>
     </dl>
   </section>
 
+  {% if pending_matches %}
+  <section class="surface-padded" id="pending-matches">
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="action" value="resolve_high_confidence">
+        <button type="submit" class="btn-secondary text-sm">Resolve high-confidence</button>
+      </form>
+    </div>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      These books need your review before metadata is applied. Apply the suggested match, pick an alternate, or reject.
+    </p>
+    <ul class="divide-y divide-neutral-100 dark:divide-neutral-800">
+      {% for proposal in pending_matches %}
+      <li class="py-4 flex flex-col sm:flex-row sm:items-start gap-4">
+        <div class="flex gap-4 min-w-0 flex-1">
+          {% if proposal.candidate.cover_url %}
+          <img src="{{ proposal.candidate.cover_url }}" alt="" class="w-14 h-20 object-cover shrink-0 border border-neutral-200 dark:border-neutral-700">
+          {% endif %}
+          <div class="min-w-0">
+            <p class="font-medium text-neutral-900 dark:text-neutral-100">{{ proposal.book.title }}</p>
+            <p class="text-sm text-neutral-600 dark:text-neutral-400 truncate">
+              Suggested: {{ proposal.candidate.title|default:"—" }}
+              {% if proposal.candidate.isbn_13 %} · ISBN {{ proposal.candidate.isbn_13 }}{% endif %}
+            </p>
+            <p class="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+              Score {{ proposal.score|floatformat:2 }}{% if proposal.source_summary %} · {{ proposal.source_summary }}{% endif %}
+            </p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <form method="post" action="{% url 'web:metadata-match-apply' proposal.pk %}">{% csrf_token %}
+            <button type="submit" class="btn-primary text-sm">Apply</button>
+          </form>
+          <form method="post" action="{% url 'web:metadata-match-reject' proposal.pk %}">{% csrf_token %}
+            <button type="submit" class="btn-secondary text-sm">Reject</button>
+          </form>
+          {% if proposal.alternates %}
+          <form method="post" action="{% url 'web:metadata-match-apply-alternate' proposal.pk %}" class="flex items-center gap-2">
+            {% csrf_token %}
+            <select name="alternate_index" class="input text-sm py-1">
+              {% for alt in proposal.alternates %}
+              <option value="{{ forloop.counter0 }}">{{ alt.title|default:"Alternate" }}{% if alt.isbn_13 %} ({{ alt.isbn_13 }}){% endif %}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-secondary text-sm">Use alternate</button>
+          </form>
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if duplicate_groups %}
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Duplicate books</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      These books look like duplicates (matching ISBN or title+author). Pick one to keep and merge the rest into it.
+    </p>
+    <div class="space-y-6">
+      {% for group in duplicate_groups %}
+      <form method="post" class="border border-neutral-200 dark:border-neutral-700 rounded-lg p-4">{% csrf_token %}
+        <input type="hidden" name="action" value="merge_duplicates">
+        <p class="text-xs uppercase tracking-wide text-neutral-500 dark:text-neutral-500 mb-3">
+          Match: {{ group.match_type|cut:"_" }} — {{ group.match_key|truncatechars:80 }}
+        </p>
+        <ul class="space-y-2 mb-4">
+          {% for book in group.books %}
+          <li class="flex items-start gap-3 text-sm">
+            <label class="inline-flex items-start gap-2 min-w-0 flex-1">
+              <input type="radio" name="keeper_id" value="{{ book.pk }}" class="mt-1" {% if forloop.first %}checked{% endif %} required>
+              <span>
+                <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ book.title }}</span>
+                <span class="block text-neutral-600 dark:text-neutral-400">
+                  {% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}
+                  {% if book.isbn_13 %} · ISBN {{ book.isbn_13 }}{% endif %}
+                </span>
+              </span>
+            </label>
+            <input type="hidden" name="group_book_ids" value="{{ book.pk }}">
+          </li>
+          {% endfor %}
+        </ul>
+        <button type="submit" class="btn-primary text-sm" onclick="return confirm('Merge duplicates? Extra copies will move to trash.')">
+          Merge group
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <section class="surface-padded">
     <h2 class="section-title mb-2">Metadata backfill</h2>
     <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
-      Look up missing cover, pages, authors, and other fields from Open Library / Google Books.
+      Look up missing cover, pages, authors, genres, and ISBN from Open Library, Google Books, and Wikidata.
       Only empty fields are filled — existing data is never overwritten.
     </p>
   {% if needing_metadata_count %}
+    {% if active_backfill_job %}
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      A metadata backfill is already {{ active_backfill_job.get_status_display|lower }}.
+      <a href="{% url 'web:import-job-detail' active_backfill_job.pk %}" class="link">View job</a>
+    </p>
+    {% else %}
     <form method="post">{% csrf_token %}
       <input type="hidden" name="action" value="backfill_metadata">
       <button type="submit" class="btn-primary text-sm">
         Backfill {{ needing_metadata_count }} book{{ needing_metadata_count|pluralize }}
       </button>
     </form>
-    <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Runs in the background with rate limiting. Books must have an ISBN.</p>
+    <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Runs in the background with rate limiting. Uncertain matches appear above for review.</p>
+    {% endif %}
   {% else %}
-    <p class="text-sm text-neutral-600 dark:text-neutral-400">All books with ISBNs have complete metadata.</p>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400">No books currently need metadata backfill.</p>
   {% endif %}
+    <form method="post" class="mt-4">{% csrf_token %}
+      <input type="hidden" name="action" value="backfill_missing_covers">
+      <button type="submit" class="btn-secondary text-sm">Fix missing covers only</button>
+    </form>
   </section>
+
+  {% if duplicate_author_groups %}
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Duplicate authors</h2>
+    <div class="space-y-4">
+      {% for group in duplicate_author_groups %}
+      <form method="post" class="border border-neutral-200 dark:border-neutral-700 p-4">{% csrf_token %}
+        <input type="hidden" name="action" value="merge_authors">
+        <ul class="space-y-2 mb-3 text-sm">
+          {% for author in group %}
+          <li>
+            <label class="inline-flex items-center gap-2">
+              <input type="radio" name="primary_author_id" value="{{ author.pk }}" {% if forloop.first %}checked{% endif %} required>
+              {{ author.name }}
+            </label>
+            <input type="hidden" name="author_ids" value="{{ author.pk }}">
+          </li>
+          {% endfor %}
+        </ul>
+        <button type="submit" class="btn-primary text-sm">Merge into selected author</button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
   <section class="surface-padded">
     <h2 class="section-title mb-2">Metadata cache</h2>
     <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
-      Clear cached ISBN lookups to force fresh results from Open Library and Google Books on the next request.
+      Clear cached lookups to force fresh results from Open Library, Google Books, and Wikidata on the next request.
     </p>
     <form method="post">{% csrf_token %}
       <input type="hidden" name="action" value="clear_metadata_cache">
@@ -75,16 +223,51 @@
     <h2 class="section-title mb-4">Recent backfill jobs</h2>
     <ul class="divide-y divide-neutral-100 dark:divide-neutral-800 text-sm">
       {% for job in recent_jobs %}
-      <li class="py-2 flex items-center justify-between gap-4">
+      <li class="py-2 flex flex-wrap items-center justify-between gap-4">
         <span class="text-neutral-700 dark:text-neutral-300">
           {{ job.get_status_display }}
+          {% if job.progress_total %}
+          {% if job.status == "pending" or job.status == "running" %}
+          <span class="text-neutral-500 dark:text-neutral-500">· {{ job.progress_done }}/{{ job.progress_total }}</span>
+          {% endif %}
+          {% endif %}
           <span class="text-neutral-400 dark:text-neutral-500">({{ job.created_at|date:"M j, Y g:i A" }})</span>
         </span>
-        <a href="{% url 'web:import-job-detail' job.pk %}" class="link text-sm shrink-0">View</a>
+        <span class="flex items-center gap-2 shrink-0">
+          {% if job.is_cancellable %}
+          <form method="post" action="{% url 'web:import-job-detail' job.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="cancel">
+            <input type="hidden" name="next" value="{% url 'web:library-tools' %}">
+            <button type="submit" class="btn-destructive text-sm" onclick="return confirm('Cancel this backfill job?')">Cancel</button>
+          </form>
+          {% endif %}
+          <a href="{% url 'web:import-job-detail' job.pk %}" class="link text-sm">View</a>
+        </span>
       </li>
       {% endfor %}
     </ul>
   </section>
   {% endif %}
+
+  <section class="surface-padded">
+    <h2 class="section-title mb-2">Genre management</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+      Rename, merge, or delete genres from each genre’s detail page.
+    </p>
+    {% if genres_for_manage %}
+    <ul class="divide-y divide-neutral-100 dark:divide-neutral-800 text-sm">
+      {% for genre in genres_for_manage %}
+      <li class="py-2 flex items-center justify-between gap-4">
+        <span class="text-neutral-700 dark:text-neutral-300">{{ genre.name }}</span>
+        <a href="{% url 'web:genre-detail' genre.slug %}" class="link text-sm shrink-0">Manage</a>
+      </li>
+      {% endfor %}
+    </ul>
+    <a href="{% url 'web:genre-list' %}" class="link text-sm mt-4 inline-block">View all genres</a>
+    {% else %}
+    <p class="text-sm text-neutral-600 dark:text-neutral-400">No genres yet.</p>
+    {% endif %}
+  </section>
 </div>
 {% endblock %}

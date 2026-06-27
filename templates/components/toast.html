@@ -1,0 +1,53 @@
+{% if messages %}
+<div id="toast-stack"
+     class="fixed top-4 right-4 z-[70] flex flex-col gap-2 w-full max-w-sm pointer-events-none px-4 sm:px-0"
+     aria-live="polite"
+     aria-atomic="false"
+     role="region"
+     aria-label="Notifications">
+  {% for message in messages %}
+  <div class="toast pointer-events-auto relative pr-10 px-4 py-3 text-sm border shadow-lg motion-safe:animate-[toast-in_200ms_ease-out]
+    {% if message.tags == 'error' %}border-red-800/40 dark:border-red-700/50 text-red-950 dark:text-red-300 bg-red-50 dark:bg-red-950/90
+    {% elif message.tags == 'warning' %}border-neutral-400 dark:border-neutral-600 text-neutral-900 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-900
+    {% elif message.tags == 'info' %}border-neutral-300 dark:border-neutral-700 text-neutral-800 dark:text-neutral-300 bg-white dark:bg-neutral-900
+    {% else %}border-green-800/40 dark:border-green-700/50 text-green-950 dark:text-green-300 bg-green-50 dark:bg-green-950/90{% endif %}"
+       data-toast
+       role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+    <p class="min-w-0">{{ message }}</p>
+    <button type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 min-h-11 min-w-11 inline-flex items-center justify-center opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300"
+            data-dismiss-toast
+            aria-label="Dismiss notification">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  {% endfor %}
+</div>
+<style>
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(-0.5rem); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .toast { animation: none !important; }
+  }
+</style>
+<script>
+  (function () {
+    var stack = document.getElementById('toast-stack');
+    if (!stack) return;
+    stack.querySelectorAll('[data-toast]').forEach(function (toast) {
+      var dismissed = false;
+      var remove = function () {
+        if (dismissed) return;
+        dismissed = true;
+        toast.remove();
+        if (stack && !stack.querySelector('[data-toast]')) stack.remove();
+      };
+      setTimeout(remove, 5000);
+      var btn = toast.querySelector('[data-dismiss-toast]');
+      if (btn) btn.addEventListener('click', remove);
+    });
+  })();
+</script>
+{% endif %}

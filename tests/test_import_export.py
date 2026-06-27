@@ -8,6 +8,7 @@ from rest_framework import status
 
 from books.factories import BookFactory
 from books.import_export import (
+    _create_book_from_data,
     _parse_goodreads_isbn,
     export_csv,
     export_json,
@@ -15,6 +16,23 @@ from books.import_export import (
     import_isbns,
 )
 from books.models import Book, ImportJob
+
+
+@pytest.mark.django_db
+def test_create_book_from_data_persists_provider_ids():
+    book = _create_book_from_data(
+        {"title": "Imported Book", "author": "Author"},
+        {
+            "openlibrary_work_id": "/works/OL1W",
+            "google_books_id": "gb123",
+            "wikidata_id": "Q1",
+            "source_summary": "open_library+google_books",
+        },
+    )
+    assert book.openlibrary_work_id == "/works/OL1W"
+    assert book.google_books_id == "gb123"
+    assert book.wikidata_id == "Q1"
+    assert book.metadata_source_summary == "open_library+google_books"
 
 
 @pytest.mark.django_db
@@ -85,6 +103,60 @@ def test_goodreads_import_empty_isbns_not_treated_as_duplicates():
     assert result.skipped == 0
     assert Book.objects.filter(title="Sophie's World").exists()
     assert Book.objects.filter(title="Norwegian Wood").exists()
+
+
+@pytest.mark.django_db
+def test_goodreads_import_dates_and_additional_authors():
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Title", "Author", "Additional Authors", "ISBN", "ISBN13", "My Rating", "My Review",
+        "Number of Pages", "Year Published", "Publisher", "Exclusive Shelf", "Bookshelves",
+        "Date Read", "Date Added",
+    ])
+    writer.writerow([
+        "The Way of Kings", "Brandon Sanderson", "Illustrator Name",
+        '=""', '=""', "5", "Epic",
+        "1000", "2010", "Tor", "read", "",
+        "2024/06/15", "2023/01/10",
+    ])
+    file = io.BytesIO(output.getvalue().encode("utf-8"))
+    file.name = "goodreads.csv"
+    result = import_goodreads_csv(file)
+    assert result.added == 1
+    book = Book.objects.get(title="The Way of Kings")
+    author_names = list(book.authors.order_by("book_authors__position").values_list("name", flat=True))
+    assert author_names == ["Brandon Sanderson", "Illustrator Name"]
+    log = book.reading_log
+    assert log.finished_at.isoformat() == "2024-06-15"
+    assert log.read_count == 1
+    book.refresh_from_db()
+    from django.utils import timezone as tz
+
+    assert tz.localtime(book.created_at).date().isoformat() == "2023-01-10"
+
+
+@pytest.mark.django_db
+def test_goodreads_export_includes_dates_and_additional_authors():
+    from books.factories import BookFactory
+    from books.models import Author, BookAuthor, ReadingLog, ReadingStatus
+
+    book = BookFactory(title="Export Dates", isbn_13="9781111111111")
+    a1 = Author.objects.create(name="Primary Author")
+    a2 = Author.objects.create(name="Co Author")
+    BookAuthor.objects.create(book=book, author=a1, position=0)
+    BookAuthor.objects.create(book=book, author=a2, position=1)
+    log = book.reading_log
+    log.status = ReadingStatus.FINISHED
+    log.finished_at = __import__("datetime").date(2024, 3, 20)
+    log.save()
+    Book.objects.filter(pk=book.pk).update(
+        created_at=__import__("datetime").datetime(2022, 5, 1, 12, 0, 0)
+    )
+    csv_content = export_csv()
+    assert "Co Author" in csv_content
+    assert "2024/03/20" in csv_content
+    assert "2022/05/01" in csv_content
 
 
 @pytest.mark.django_db

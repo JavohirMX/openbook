@@ -1,6 +1,6 @@
 {% if cover_url %}
 <span class="inline-block relative shrink-0 {{ width|default:'w-12' }} {{ height|default:'h-16' }} {{ extra_class|default:'' }}">
-  <img src="{{ cover_url }}" alt="{{ title|default:'Book cover' }}" class="w-full h-full object-cover border border-neutral-200 dark:border-neutral-700" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');">
+  <img src="{{ cover_url }}" alt="{{ title|default:'Book cover' }}" referrerpolicy="no-referrer" decoding="async" class="w-full h-full object-cover border border-neutral-200 dark:border-neutral-700" onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden');" onload="if (this.naturalWidth &lt;= 1 || this.naturalHeight &lt;= 1) { this.onerror(); }">
   <span class="hidden absolute inset-0 bg-neutral-200 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-500 dark:text-neutral-400 text-xs" aria-hidden="true">No cover</span>
 </span>
 {% else %}

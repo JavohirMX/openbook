@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.forms import PasswordChangeForm as DjangoPasswordChangeForm
 
 from accounts.models import UserProfile
 
@@ -53,6 +54,13 @@ class ProfileForm(forms.ModelForm):
             self.user.last_name = self.cleaned_data.get("last_name", "")
             self.user.save(update_fields=["first_name", "last_name"])
         return profile
+
+
+class PasswordChangeForm(DjangoPasswordChangeForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", INPUT_CLASS)
 
 
 class SetupSuperuserForm(forms.Form):

@@ -61,4 +61,4 @@ Class-based (`dark` on `<html>`). Theme preference: Light / Dark / System via `l
 
 ## Delivery
 
-Tailwind via CDN (MVP). Chart.js for stats (monochrome palette). Inline Heroicons. HTMX for partial updates.
+Tailwind via CDN (MVP). Chart.js for stats (12-color categorical palette — blue, green, amber, red, violet, cyan, pink, lime, orange, indigo, teal, fuchsia; lighter hues in dark mode). Color is scoped to chart data slices; all other UI stays monochrome. Inline Heroicons. HTMX for partial updates.

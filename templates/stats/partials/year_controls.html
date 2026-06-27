@@ -1,0 +1,17 @@
+<div class="flex flex-wrap items-center gap-3">
+  <label for="year-select" class="text-sm font-medium text-neutral-700 dark:text-neutral-300">Year</label>
+  <select
+    id="year-select"
+    name="year"
+    class="min-h-11 px-3 border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm"
+    hx-get="{% url 'web:stats' %}"
+    hx-trigger="change"
+    hx-include="this"
+    hx-swap="none"
+    hx-push-url="true"
+  >
+    {% for y in available_years %}
+    <option value="{{ y }}"{% if y == selected_year %} selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+</div>

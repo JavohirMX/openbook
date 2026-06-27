@@ -1,0 +1,50 @@
+<div class="surface-list">
+  {% if selectable %}
+  <div class="px-4 py-2 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-3 text-sm">
+    <label class="inline-flex items-center gap-2 pointer-events-auto">
+      <input type="checkbox" id="select-all-books" class="rounded border-neutral-300">
+      <span class="text-neutral-600 dark:text-neutral-400">Select all on page</span>
+    </label>
+  </div>
+  {% endif %}
+  {% for book in books %}
+  <article class="relative px-4 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+    {% if selectable %}
+    <div class="absolute left-4 top-1/2 -translate-y-1/2 z-20 pointer-events-auto">
+      <input type="checkbox" class="book-select rounded border-neutral-300" value="{{ book.pk }}" aria-label="Select {{ book.title }}">
+    </div>
+    {% endif %}
+    {% if not actions_template %}
+    <a href="{% url 'web:book-detail' book.pk %}" class="absolute inset-0 z-0 {% if selectable %}pl-10{% endif %}" aria-label="View {{ book.title }}"></a>
+    {% endif %}
+    <div class="relative z-10 flex gap-3 items-center pointer-events-none {% if selectable %}pl-8{% endif %}">
+      {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-8" height="h-11" %}
+      <div class="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm truncate">
+            <span class="font-medium text-neutral-950 dark:text-neutral-100">{% if show_series_position and book.series_position %}#{{ book.series_position }} · {% endif %}{{ book.title }}</span>
+            <span class="text-neutral-600 dark:text-neutral-400"> · {% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</span>
+          </p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0 pointer-events-auto">
+          {% if show_status != False %}
+          {% if book.reading_log %}<span class="badge">{{ book.reading_log.get_status_display }}</span>{% endif %}
+          {% endif %}
+          {% if show_finished_date and book.reading_log.finished_at %}
+          <time class="text-xs text-neutral-500 dark:text-neutral-400" datetime="{{ book.reading_log.finished_at|date:'Y-m-d' }}">{{ book.reading_log.finished_at|date:"M j" }}</time>
+          {% endif %}
+          {% if show_deleted_date and book.deleted_at %}
+          <time class="text-xs text-neutral-500 dark:text-neutral-400" datetime="{{ book.deleted_at|date:'Y-m-d' }}">Deleted {{ book.deleted_at|date:"M j, Y" }}</time>
+          {% endif %}
+          {% if show_rating != False %}
+          {% include "components/book_row/rating.html" with book=book %}
+          {% endif %}
+          {% if actions_template %}
+          {% include actions_template with book=book %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>

@@ -2,6 +2,7 @@ from django.db.models import Q
 from django_filters import rest_framework as filters
 
 from books.isbn import normalize_isbn
+from books.search import book_text_search_q
 from books.models import Book, _IS_POSTGRESQL
 
 
@@ -10,13 +11,14 @@ class BookFilter(filters.FilterSet):
     isbn = filters.CharFilter(method="filter_isbn")
     shelf = filters.NumberFilter(field_name="bookshelf_items__shelf_id")
     genre = filters.CharFilter(method="filter_genre")
+    series = filters.CharFilter(method="filter_series")
     status = filters.CharFilter(field_name="reading_log__status")
     rating = filters.NumberFilter(field_name="review__rating")
     search = filters.CharFilter(method="filter_search")
 
     class Meta:
         model = Book
-        fields = ["author", "isbn", "shelf", "genre", "status", "rating"]
+        fields = ["author", "isbn", "shelf", "genre", "series", "status", "rating"]
 
     def filter_isbn(self, queryset, name, value):
         normalized = normalize_isbn(value)
@@ -31,6 +33,9 @@ class BookFilter(filters.FilterSet):
 
     def filter_genre(self, queryset, name, value):
         return queryset.filter(Q(genres__slug=value) | Q(genres__name__iexact=value))
+
+    def filter_series(self, queryset, name, value):
+        return queryset.filter(Q(series__slug=value) | Q(series__name__iexact=value))
 
     def filter_search(self, queryset, name, value):
         if not value:
@@ -53,13 +58,9 @@ class BookFilter(filters.FilterSet):
             query = SearchQuery(value, config="english")
             return (
                 queryset.annotate(rank=SearchRank("search_vector", query))
-                .filter(Q(search_vector=query) | Q(authors__name__icontains=value))
+                .filter(book_text_search_q(value))
                 .distinct()
                 .order_by("-rank")
             )
 
-        return queryset.filter(
-            Q(title__icontains=value)
-            | Q(subtitle__icontains=value)
-            | Q(authors__name__icontains=value)
-        ).distinct()
+        return queryset.filter(book_text_search_q(value)).distinct()

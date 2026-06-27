@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Shelves — openbook{% endblock %}
+{% block extra_head %}
+{% if shelves %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+{% endif %}
+{% endblock %}
 {% block content %}
 <h1 class="page-title mb-6">Shelves</h1>
 
@@ -23,15 +28,23 @@
     <section>
       <h2 class="section-title mb-3">Custom shelves</h2>
       {% if shelves %}
-      <div class="surface-list">
+      <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-3">Drag to reorder custom shelves.</p>
+      <div id="custom-shelves-list" class="surface-list">
         {% for shelf in shelves %}
-        <a href="{% url 'web:shelf-detail' shelf.pk %}" class="flex items-center justify-between px-4 py-4 min-h-[3.5rem] hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
-          <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ shelf.name }}</span>
-          <span class="flex items-center gap-3">
-            <span class="badge">{{ shelf.book_count }} book{{ shelf.book_count|pluralize }}</span>
-            <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
-          </span>
-        </a>
+        <div class="flex items-stretch min-h-[3.5rem] hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150" data-shelf-id="{{ shelf.pk }}">
+          <button type="button"
+                  class="drag-handle shrink-0 min-h-11 min-w-11 inline-flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300"
+                  aria-label="Drag to reorder {{ shelf.name }}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+          </button>
+          <a href="{% url 'web:shelf-detail' shelf.pk %}" class="flex flex-1 items-center justify-between px-4 py-4 min-w-0">
+            <span class="font-medium text-neutral-900 dark:text-neutral-100 truncate">{{ shelf.name }}</span>
+            <span class="flex items-center gap-3 shrink-0 ml-3">
+              <span class="badge">{{ shelf.book_count }} book{{ shelf.book_count|pluralize }}</span>
+              <svg class="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+            </span>
+          </a>
+        </div>
         {% endfor %}
       </div>
       {% else %}
@@ -53,4 +66,35 @@
     </form>
   </div>
 </div>
+{% if shelves %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var list = document.getElementById('custom-shelves-list');
+    if (!list || typeof Sortable === 'undefined') return;
+    var reorderUrl = '{% url "web:shelf-reorder" %}';
+    var csrfToken = document.querySelector('meta[name="csrf-token"]');
+    Sortable.create(list, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: function () {
+        var ids = Array.prototype.map.call(
+          list.querySelectorAll('[data-shelf-id]'),
+          function (row) { return row.getAttribute('data-shelf-id'); }
+        );
+        var body = new URLSearchParams();
+        ids.forEach(function (id) { body.append('shelf_ids', id); });
+        fetch(reorderUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken ? csrfToken.content : '',
+            'HX-Request': 'true',
+          },
+          body: body.toString(),
+        });
+      },
+    });
+  });
+</script>
+{% endif %}
 {% endblock %}

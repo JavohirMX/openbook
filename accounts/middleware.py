@@ -10,6 +10,10 @@ ALLOWED_WITHOUT_USERS = (
     "/static/",
     "/admin/login/",
     "/api/",
+    "/opds/",
+    "/profile/",
+    "/p/",
+    "/embed/",
 )
 
 

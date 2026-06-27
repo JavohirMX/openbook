@@ -43,8 +43,8 @@
 
     document.body.addEventListener('change', function (e) {
       if (e.target && e.target.name === 'status' && e.target.type === 'radio') {
-        var fields = document.getElementById('reading-progress-fields');
-        if (fields) fields.classList.toggle('hidden', e.target.value !== 'reading');
+        var details = document.getElementById('reading-progress-details');
+        if (details) details.open = e.target.value === 'reading';
       }
     });
   });

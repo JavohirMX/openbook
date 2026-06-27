@@ -169,11 +169,16 @@ Before creating a book, `_find_duplicate` checks in order:
 
 Duplicates increment `skipped` in the result. Uses `Book.all_objects` so trashed books are also matched.
 
-### Optional metadata enrichment
+### Metadata enrichment (default on)
 
-When `IMPORT_GOODREADS_ENRICH_METADATA=true`, rows with an ISBN trigger an Open Library lookup to fill missing cover, genres, and other fields. Each lookup is rate-paced (see §6).
+When `IMPORT_GOODREADS_ENRICH_METADATA=true` (default), each row is enriched via the unified metadata resolver:
 
-**Default (`false`):** CSV data only — fast import, no external HTTP. Use Library Tools afterward to backfill metadata.
+- Rows **with ISBN** — merged lookup across Open Library, Google Books, and Wikidata
+- Rows **without ISBN** — title+author search when both are present in the CSV
+
+Only empty fields are filled at import time. Uncertain matches are not queued during import (import uses best-effort scoring without review).
+
+Set `IMPORT_GOODREADS_ENRICH_METADATA=false` for CSV-only imports (no external HTTP).
 
 ---
 
@@ -185,7 +190,7 @@ Triggered by API `{"isbns": ["978...", ...]}` or web ISBN list form.
 
 1. Normalize and validate ISBN checksums.
 2. Skip if duplicate exists (`skipped`).
-3. Call `MetadataService.lookup_isbn` (Open Library → Google Books fallback).
+3. Call `lookup_metadata_for_import` (merged Open Library + Google Books + Wikidata).
 4. Fail if no title found (`failed`).
 5. Create book via `_create_book_from_data` with metadata.
 6. Update progress callback.
@@ -198,16 +203,17 @@ ISBN import **always** fetches external metadata (unlike CSV default). Books wit
 
 ### When books need metadata
 
-A book is eligible for backfill when it has an ISBN **and** any of:
+A book is eligible for backfill when it has an ISBN **or** (title + at least one author), **and** any of:
 
-- Missing cover URL
+- Missing cover URL or local cover image
 - Missing page count
 - No authors
 - No genres
 - Missing publisher
 - Missing published year
+- Missing ISBN
 
-Query: `books_needing_metadata()` in `library_maintenance.py`.
+High-confidence matches are applied automatically; ambiguous matches create a `MetadataMatchProposal` for review on **Library Tools**.
 
 ### Enrichment rules (`enrich_book_from_metadata`)
 
@@ -233,12 +239,21 @@ Query: `books_needing_metadata()` in `library_maintenance.py`.
 
 ### Lookup order (`MetadataService.lookup_isbn`)
 
-1. Check Django cache (`metadata:isbn:{isbn_13}`, TTL 30 days).
-2. Query **Open Library** (`/api/books?bibkeys=ISBN:...`).
-3. If no title, query **Google Books** (`/volumes?q=isbn:...`).
-4. Cache positive result (30 days) or negative result (1 hour).
+Default strategy is **chain** (`METADATA_LOOKUP_STRATEGY=chain`). Legacy **parallel** merge-all is available via `METADATA_LOOKUP_STRATEGY=parallel`.
 
-Title/author search (`search_books`) queries both providers and merges results.
+**Chain (default):**
+
+1. Check Django cache (`metadata:isbn:{isbn_13}`, TTL 30 days).
+2. Query **Open Library**.
+3. Query **Google Books** only if completeness rules say more data is needed (strict during import; looser for interactive lookups — may fetch GB for missing description, year, or publisher).
+4. Query **Wikidata** only if still missing a title (import) or cover/genres/description (interactive).
+5. Merge with `merge_metadata_best_per_field` when multiple providers were called.
+6. Optionally hydrate via Open Library work/edition API when keys are present.
+7. Cache positive result (30 days) or negative result (1 hour).
+
+**Parallel (legacy):** query Open Library, Google Books, and Wikidata on every lookup, then merge.
+
+Title/author search (`search_books`) queries Open Library first, then Google Books and Wikidata only when fewer than `min(3, limit)` titled results were found (parallel mode always queries all three). Results are deduplicated.
 
 ### Rate pacing
 

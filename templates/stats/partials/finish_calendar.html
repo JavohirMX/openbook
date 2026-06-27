@@ -1,0 +1,55 @@
+<div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+  <div class="min-w-0 flex-1">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="section-title text-base">Finish Calendar</h2>
+        <p class="text-sm text-neutral-600 dark:text-neutral-400 mt-1">{{ calendar_range_label }}</p>
+      </div>
+      <div class="flex items-center gap-1">
+        {% if calendar_prev_url %}
+        <a
+          href="{{ calendar_prev_url }}"
+          class="inline-flex items-center justify-center w-7 h-7 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          aria-label="Previous month"
+          hx-get="{{ calendar_prev_url }}"
+          hx-swap="none"
+          hx-push-url="true"
+        >&lsaquo;</a>
+        {% else %}
+        <span class="inline-flex items-center justify-center w-7 h-7 text-neutral-300 dark:text-neutral-700" aria-hidden="true">&lsaquo;</span>
+        {% endif %}
+        {% if calendar_next_url %}
+        <a
+          href="{{ calendar_next_url }}"
+          class="inline-flex items-center justify-center w-7 h-7 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          aria-label="Next month"
+          hx-get="{{ calendar_next_url }}"
+          hx-swap="none"
+          hx-push-url="true"
+        >&rsaquo;</a>
+        {% else %}
+        <span class="inline-flex items-center justify-center w-7 h-7 text-neutral-300 dark:text-neutral-700" aria-hidden="true">&rsaquo;</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {% for finish_calendar in finish_calendars %}
+      {% include "stats/partials/finish_calendar_month.html" %}
+      {% endfor %}
+    </div>
+    <div class="flex items-center gap-2 mt-4 text-[10px] text-neutral-500 dark:text-neutral-400">
+      <span>Fewer</span>
+      <div class="flex gap-px">
+        <span class="w-3 h-3 border border-neutral-200 dark:border-neutral-800"></span>
+        <span class="w-3 h-3 bg-emerald-100 dark:bg-emerald-900/50"></span>
+        <span class="w-3 h-3 bg-emerald-200 dark:bg-emerald-800/60"></span>
+        <span class="w-3 h-3 bg-emerald-400 dark:bg-emerald-700/70"></span>
+        <span class="w-3 h-3 bg-emerald-600 dark:bg-emerald-500"></span>
+      </div>
+      <span>More</span>
+    </div>
+  </div>
+  <p class="text-sm text-neutral-500 dark:text-neutral-400 lg:pt-8 shrink-0">
+    <a href="{% url 'web:year-review' selected_year %}" class="link">{{ selected_year }} year in review</a>
+  </p>
+</div>

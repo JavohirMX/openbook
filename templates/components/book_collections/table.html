@@ -1,0 +1,32 @@
+<div class="overflow-x-auto surface-list">
+  <table class="w-full text-sm">
+    <thead class="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
+      <tr>
+        <th class="text-left px-4 py-3 font-medium text-neutral-700 dark:text-neutral-300">Title</th>
+        <th class="text-left px-4 py-3 font-medium text-neutral-700 dark:text-neutral-300 hidden sm:table-cell">Author</th>
+        <th class="text-left px-4 py-3 font-medium text-neutral-700 dark:text-neutral-300 hidden md:table-cell">Status</th>
+        <th class="text-left px-4 py-3 font-medium text-neutral-700 dark:text-neutral-300 hidden lg:table-cell">Rating</th>
+        <th class="text-left px-4 py-3 font-medium text-neutral-700 dark:text-neutral-300 hidden lg:table-cell">Pages</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
+      {% for book in books %}
+      <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
+        <td class="px-4 py-3">
+          <a href="{% url 'web:book-detail' book.pk %}" class="link font-medium">{{ book.title }}</a>
+        </td>
+        <td class="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden sm:table-cell">
+          {% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+        </td>
+        <td class="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden md:table-cell">
+          {% if book.reading_log %}{{ book.reading_log.get_status_display }}{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 hidden lg:table-cell">
+          {% if book.review and book.review.rating %}{{ book.review.rating }} / 5{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-neutral-600 dark:text-neutral-400 hidden lg:table-cell">{{ book.pages|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

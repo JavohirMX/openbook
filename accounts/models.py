@@ -1,5 +1,8 @@
+import secrets
+
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -53,3 +56,29 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"Profile for {self.user.email}"
+
+
+class ApiToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="api_tokens")
+    label = models.CharField(max_length=64)
+    key = models.CharField(max_length=64, unique=True, db_index=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.label} ({self.user.email})"
+
+    @classmethod
+    def generate_key(cls) -> str:
+        return secrets.token_hex(20)
+
+    @classmethod
+    def create_for_user(cls, user, label: str) -> "ApiToken":
+        return cls.objects.create(user=user, label=label, key=cls.generate_key())
+
+    def touch(self) -> None:
+        self.last_used_at = timezone.now()
+        self.save(update_fields=["last_used_at"])

@@ -1,0 +1,9 @@
+<details class="disclosure-section group border-t border-neutral-200 dark:border-neutral-800" {% if open %}open{% endif %}>
+  <summary class="section-title py-4 cursor-pointer list-none flex items-center justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 dark:focus-visible:ring-neutral-300 rounded">
+    <span>{{ title }}{% if show_count %} <span class="text-sm font-normal text-neutral-500 dark:text-neutral-400">({{ count }})</span>{% endif %}</span>
+    <svg class="w-5 h-5 text-neutral-400 shrink-0 group-open:rotate-180 transition-transform duration-150" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+  </summary>
+  <div class="pb-6">
+    {% include content_template %}
+  </div>
+</details>

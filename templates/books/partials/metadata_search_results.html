@@ -15,6 +15,9 @@
       {% if result.authors %}
       <span class="text-sm text-neutral-500 dark:text-neutral-400 block">{{ result.authors|join:", " }}</span>
       {% endif %}
+      {% if result.source or result.source_summary %}
+      <span class="badge mt-1">{{ result.source_summary|default:result.source }}</span>
+      {% endif %}
       {% if result.isbn_13 or result.isbn_10 %}
       <span class="text-xs text-neutral-400 dark:text-neutral-500">ISBN: {% firstof result.isbn_13 result.isbn_10 %}</span>
       {% endif %}

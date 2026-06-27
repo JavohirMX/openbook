@@ -16,8 +16,8 @@
   </section>
 
   <section class="surface-padded">
-    <h2 class="section-title mb-2">Import Goodreads CSV</h2>
-    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Upload your Goodreads library export (.csv) to preview before importing.</p>
+    <h2 class="section-title mb-2">Import CSV</h2>
+    <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">Upload a Goodreads or StoryGraph library export (.csv). Format is detected automatically.</p>
     <form method="post" enctype="multipart/form-data" data-disable-on-submit>{% csrf_token %}
       <input type="hidden" name="action" value="preview_csv">
       <label for="id_csv_file" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">CSV file</label>

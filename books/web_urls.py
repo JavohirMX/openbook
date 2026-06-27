@@ -1,15 +1,22 @@
 from django.urls import path
 
 from books import web_views as views
+from books.web_reading import ReadingLogView
 
 app_name = "web"
 
 urlpatterns = [
     path("", views.DashboardView.as_view(), name="dashboard"),
+    path("reading/", ReadingLogView.as_view(), name="reading-log"),
     path("books/", views.BookListView.as_view(), name="book-list"),
+    path("books/bulk/", views.books_bulk_action, name="books-bulk"),
+    path("books/search/", views.header_search, name="header-search"),
     path("books/add/", views.BookCreateView.as_view(), name="book-add"),
     path("books/lookup/", views.isbn_lookup, name="book-lookup"),
     path("books/search-metadata/", views.metadata_search, name="book-search-metadata"),
+    path("books/epub-metadata/", views.epub_metadata_lookup, name="book-epub-metadata"),
+    path("books/filter-presets/save/", views.save_filter_preset, name="filter-preset-save"),
+    path("books/filter-presets/<int:pk>/delete/", views.delete_filter_preset, name="filter-preset-delete"),
     path("books/<uuid:pk>/", views.BookDetailView.as_view(), name="book-detail"),
     path("books/<uuid:pk>/edit/", views.BookUpdateView.as_view(), name="book-edit"),
     path("books/<uuid:pk>/delete/", views.book_soft_delete, name="book-delete"),
@@ -19,12 +26,23 @@ urlpatterns = [
     path("books/<uuid:pk>/reading/", views.book_reading, name="book-reading"),
     path("books/<uuid:pk>/quotes/", views.book_quote, name="book-quote"),
     path("books/<uuid:pk>/quotes/<int:quote_id>/delete/", views.book_quote_delete, name="book-quote-delete"),
+    path("books/<uuid:pk>/note/", views.book_note, name="book-note"),
     path("books/<uuid:pk>/refresh-metadata/", views.book_refresh_metadata, name="book-refresh-metadata"),
+    path("books/<uuid:pk>/metadata-locks/", views.book_metadata_locks, name="book-metadata-locks"),
+    path("books/<uuid:pk>/tags/", views.book_tag_add, name="book-tag-add"),
+    path("books/<uuid:pk>/tags/<int:tag_id>/remove/", views.book_tag_remove, name="book-tag-remove"),
     path("authors/", views.AuthorListView.as_view(), name="author-list"),
+    path("authors/<int:pk>/refresh/", views.author_refresh_wikipedia, name="author-refresh-wikipedia"),
     path("authors/<int:pk>/", views.AuthorDetailView.as_view(), name="author-detail"),
+    path("genres/", views.GenreListView.as_view(), name="genre-list"),
     path("genres/<slug:slug>/", views.GenreDetailView.as_view(), name="genre-detail"),
+    path("series/", views.SeriesListView.as_view(), name="series-list"),
+    path("series/<slug:slug>/", views.SeriesDetailView.as_view(), name="series-detail"),
     path("embed/widget.js", views.embed_widget, name="embed-widget"),
+    path("profile/", views.public_profile, name="public-profile"),
+    path("p/", views.public_profile, name="public-profile-short"),
     path("shelves/", views.ShelfListView.as_view(), name="shelf-list"),
+    path("shelves/reorder/", views.shelf_reorder, name="shelf-reorder"),
     path("shelves/status/<slug:slug>/", views.StatusShelfDetailView.as_view(), name="status-shelf-detail"),
     path("shelves/<int:pk>/", views.ShelfDetailView.as_view(), name="shelf-detail"),
     path("shelves/<int:pk>/edit/", views.shelf_update, name="shelf-edit"),
@@ -33,8 +51,23 @@ urlpatterns = [
     path("trash/<uuid:pk>/restore/", views.trash_restore, name="trash-restore"),
     path("trash/<uuid:pk>/delete/", views.trash_delete_permanent, name="trash-delete"),
     path("settings/", views.SettingsView.as_view(), name="settings"),
+    path("export/json/", views.web_export_json, name="web-export-json"),
+    path("export/csv/", views.web_export_csv, name="web-export-csv"),
     path("library-tools/", views.LibraryToolsView.as_view(), name="library-tools"),
+    path("library-tools/matches/<uuid:pk>/apply/", views.metadata_match_apply, name="metadata-match-apply"),
+    path("library-tools/matches/<uuid:pk>/reject/", views.metadata_match_reject, name="metadata-match-reject"),
+    path(
+        "library-tools/matches/<uuid:pk>/apply-alternate/",
+        views.metadata_match_apply_alternate,
+        name="metadata-match-apply-alternate",
+    ),
     path("stats/", views.StatsPageView.as_view(), name="stats"),
+    path(
+        "stats/finished-on/<int:year>/<int:month>/<int:day>/",
+        views.FinishedOnDayView.as_view(),
+        name="stats-finished-on",
+    ),
+    path("stats/year/<int:year>/", views.YearReviewView.as_view(), name="year-review"),
     path("import-export/", views.ImportExportView.as_view(), name="import-export"),
     path("import-export/jobs/<uuid:pk>/", views.ImportJobDetailView.as_view(), name="import-job-detail"),
     path(

@@ -1,7 +1,8 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.authtoken.models import Token
+
+from accounts.models import ApiToken
 
 
 @pytest.fixture
@@ -22,6 +23,7 @@ def test_login_success_returns_token_in_envelope(api_client, user):
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"data": {"token": response.json()["data"]["token"]}}
     assert len(response.json()["data"]["token"]) > 0
+    assert ApiToken.objects.filter(user=user).exists()
 
 
 @pytest.mark.django_db
@@ -41,14 +43,14 @@ def test_login_invalid_credentials_returns_401(api_client, user):
 
 @pytest.mark.django_db
 def test_authenticated_request_with_token_header(api_client, user):
-    token = Token.objects.create(user=user)
+    token = ApiToken.create_for_user(user, label="Test")
     api_client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
 
     response = api_client.post(reverse("api-logout"))
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"data": None}
-    assert not Token.objects.filter(user=user).exists()
+    assert not ApiToken.objects.filter(pk=token.pk).exists()
 
 
 @pytest.mark.django_db

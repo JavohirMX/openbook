@@ -87,6 +87,8 @@
 
 ### Books List
 
+List, grid, and compact layouts with a toolbar toggle; the chosen layout is remembered in the browser (`localStorage`). Search and filters live in a collapsible panel opened from the toolbar.
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  🔍 [_________________________]  [Search]  [+ Add Book] │
@@ -111,29 +113,26 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  ┌──────────┐  Title                                        │
-│  │          │  Author                                       │
-│  │  Book    │  ⭐⭐⭐⭐☆  My rating: 4 / 5                  │
-│  │  Cover   │                                              │
-│  │          │  ISBN: 978-0-00-000000-0                     │
-│  │          │  Pages: 350                                  │
-│  └──────────┘  Published: 2021                             │
-│                 Genres: Fiction, Drama                     │
-│                                                          │
-│  ─── Status ───                                            │
-│  [■ Currently Reading]  45%  (p.158 / 350)  [Update]      │
-│                                                          │
-│  ─── Shelves ───                                           │
-│  [Fiction] [Favourites] [2026 Reads]  [+ Add to Shelf]   │
-│                                                          │
-│  ─── My Review ───                                         │
-│  ⭐⭐⭐⭐☆                                                  │
-│  [Edit review / notes...]                                 │
-│                                                          │
-│  ─── Details ───                                           │
-│  Description / synopsis...                                │
-│                                                          │
-│  [Edit] [Delete]                                          │
+│ ← Back to books                          [Edit] [Delete] │
+├──────────────┬──────────────────────────────────────────┤
+│              │  Title                                   │
+│   [cover]    │  Author                                  │
+│   (sticky)   │  ⭐⭐⭐⭐☆  My rating: 4 / 5             │
+│              │  Currently Reading · 45% · p.158/350      │
+│              │  [Fiction] [Classics]                    │
+├──────────────┴──────────────────────────────────────────┤
+│  YOUR READING                                           │
+│  [Not started|Reading|Finished|Paused|DNF]              │
+│  ▸ Log progress                                         │
+│  Shelves: [Favourites ×] [+ Add to shelf]              │
+├─────────────────────────────────────────────────────────┤
+│  MY REVIEW                                              │
+│  ⭐⭐⭐⭐☆  [review notes]  [Save]                        │
+├─────────────────────────────────────────────────────────┤
+│  ▸ Book details (ISBN, publisher, refresh metadata)     │
+│  ▾ Reading history (N)                                  │
+│  ▸ Quotes & highlights (N)                              │
+│  ▸ Private note                                         │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -179,7 +178,7 @@ A fresh instance has one account and no data. The empty experience should guide,
 |---------|----------|
 | **Profile** | Name, email (display) |
 | **Security** | Change password (note: CLI/admin reset if locked out) |
-| **Preferences** | Timezone (drives reading-day boundaries / streaks), theme (future) |
+| **Preferences** | Timezone (drives reading-day boundaries / streaks), theme (Light / Dark / System) |
 | **API** | Token display + Regenerate (rotates, invalidates old token) |
 | **Data** | Export JSON, Export CSV, link to Import / Export |
 
@@ -208,7 +207,7 @@ A fresh instance has one account and no data. The empty experience should guide,
 | **Typography** | Newsreader + IBM Plex Sans | Display titles + UI body; Plex Mono for tokens |
 | **Border radius** | None (`rounded-none`) | Sharp rectangular surfaces |
 | **Spacing scale** | Tailwind defaults + generous section gaps | |
-| **Charts** | **Chart.js** (via CDN) | Monochrome neutral palette |
+| **Charts** | **Chart.js** (via CDN) | 12-color categorical palette on stats page only (theme-aware light/dark variants); UI chrome stays monochrome |
 | **Icons** | Inline SVG (e.g. Heroicons) | No icon-font dependency |
 
 > **Note:** Using the Tailwind CDN means no build-time purge; acceptable for MVP. If first-paint regresses past the <1.5s target, switch to a compiled/purged Tailwind build.

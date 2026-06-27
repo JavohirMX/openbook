@@ -1,0 +1,4 @@
+<form method="post" action="{% url 'web:book-unshelve' book.pk %}">{% csrf_token %}
+  <input type="hidden" name="shelf_id" value="{{ shelf.pk }}">
+  <button type="submit" class="btn-secondary text-sm px-3">Remove</button>
+</form>

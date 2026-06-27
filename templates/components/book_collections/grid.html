@@ -1,0 +1,57 @@
+{% if selectable %}
+<div class="surface px-4 py-3 mb-4 flex items-center gap-3 text-sm border border-neutral-200 dark:border-neutral-800">
+  <label class="inline-flex items-center gap-2 pointer-events-auto">
+    <input type="checkbox" id="select-all-books" class="rounded border-neutral-300">
+    <span class="text-neutral-600 dark:text-neutral-400">Select all on page</span>
+  </label>
+</div>
+{% endif %}
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+  {% for book in books %}
+  <article class="surface relative group">
+    {% if selectable %}
+    <div class="absolute top-2 left-2 z-20 pointer-events-auto">
+      <input type="checkbox" class="book-select rounded border-neutral-300 bg-white dark:bg-neutral-900" value="{{ book.pk }}" aria-label="Select {{ book.title }}">
+    </div>
+    {% endif %}
+    <a href="{% url 'web:book-detail' book.pk %}" class="block p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors duration-150">
+      <div class="aspect-[2/3] w-full mb-3 overflow-hidden border border-neutral-200 dark:border-neutral-700">
+        {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-full" height="h-full" extra_class="block w-full h-full [&_img]:border-0 [&_span]:border-0" %}
+      </div>
+      <p class="font-medium text-sm text-neutral-950 dark:text-neutral-100 line-clamp-2">
+        {% if show_series_position and book.series_position %}#{{ book.series_position }} · {% endif %}{{ book.title }}
+      </p>
+      <p class="text-xs text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-1">{% for a in book.authors.all %}{{ a.name }}{% if not forloop.last %}, {% endif %}{% empty %}Unknown author{% endfor %}</p>
+      <div class="flex flex-wrap items-center gap-1.5 mt-2">
+        {% if show_status != False %}
+        {% if book.reading_log %}<span class="badge">{{ book.reading_log.get_status_display }}</span>{% endif %}
+        {% endif %}
+        {% if show_finished_date and book.reading_log.finished_at %}
+        <time class="text-xs text-neutral-500 dark:text-neutral-400" datetime="{{ book.reading_log.finished_at|date:'Y-m-d' }}">{{ book.reading_log.finished_at|date:"M j" }}</time>
+        {% endif %}
+        {% if show_deleted_date and book.deleted_at %}
+        <span class="text-xs text-neutral-500 dark:text-neutral-400">Deleted {{ book.deleted_at|date:"M j, Y" }}</span>
+        {% endif %}
+      </div>
+      {% if show_progress and book.reading_log %}
+      <div class="mt-2">
+        {% include "components/progress_bar.html" with percent=book.reading_log.progress_percent|default:0 %}
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{{ book.reading_log.progress_percent|default:0 }}%</p>
+      </div>
+      {% endif %}
+      {% if show_rating != False and book.review and book.review.rating %}
+      <div class="mt-2 flex items-center gap-0.5" aria-label="Rating {{ book.review.rating }} of 5">
+        {% for i in "12345" %}
+        <svg class="w-3.5 h-3.5 {% if forloop.counter <= book.review.rating %}text-neutral-950 dark:text-neutral-100{% else %}text-neutral-300 dark:text-neutral-600{% endif %}" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </a>
+    {% if actions_template %}
+    <div class="px-3 pb-3 pointer-events-auto">
+      {% include actions_template with book=book %}
+    </div>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>

@@ -35,27 +35,27 @@ People who care about their data, want a modern experience, and want to integrat
 
 ### Must-Have
 
-- [ ] **Book search & add** — search by title/author/ISBN, add books to personal collection. ISBN add is backed by **Open Library** metadata lookup (auto-fills title, authors, cover, pages, etc.); manual entry is always available as a fallback.
-- [ ] **Custom shelves** — create, name, and organise shelves as free-form tags (e.g. "Favourites", "2026 Reads", "Sci-Fi TBR"). Shelves are *not* reading status — want-to-read / reading / read / paused / DNF are tracked separately as **reading status** (see Reading tracking)
-- [ ] **Genres** — categorise books by genre (multiple genres per book); filter/browse by genre
-- [ ] **Reading tracking** — mark books as currently reading, log progress by **percent complete** (page number optional, where known). Progress is recorded over time so streaks and progress charts can be computed
-- [ ] **Ratings & reviews** — rate books (1-5 stars), write personal notes/reviews
-- [ ] **Full REST API** — all operations accessible via API for AI agents and automation
-- [ ] **Reading stats** — books per month, pages read, completion rate, shelf breakdown, reading streak
-- [ ] **Search & browse** — search your collection, filter by shelf/genre/author/rating/status
-- [ ] **Import** — import books via ISBN list or CSV (Goodreads export format), enriched via Open Library where possible
-- [ ] **Export** — export your entire collection at any time: complete **JSON** (full fidelity) and **CSV** (Goodreads-compatible for round-trip). Core to the "own your data" promise; available via UI and API
+- [x] **Book search & add** — search by title/author/ISBN, add books to personal collection. ISBN add is backed by **Open Library** metadata lookup (auto-fills title, authors, cover, pages, etc.); manual entry is always available as a fallback.
+- [x] **Custom shelves** — create, name, and organise shelves as free-form tags (e.g. "Favourites", "2026 Reads", "Sci-Fi TBR"). Shelves are *not* reading status — want-to-read / reading / read / paused / DNF are tracked separately as **reading status** (see Reading tracking)
+- [x] **Genres** — categorise books by genre (multiple genres per book); filter/browse by genre
+- [x] **Reading tracking** — mark books as currently reading, log progress by **percent complete** (page number optional, where known). Progress is recorded over time so streaks and progress charts can be computed
+- [x] **Ratings & reviews** — rate books (1-5 stars), write personal notes/reviews
+- [x] **Full REST API** — all operations accessible via API for AI agents and automation
+- [x] **Reading stats** — books per month, pages read, completion rate, shelf breakdown, reading streak
+- [x] **Search & browse** — search your collection, filter by shelf/genre/author/rating/status
+- [x] **Import** — import books via ISBN list or CSV (Goodreads export format), enriched via Open Library where possible
+- [x] **Export** — export your entire collection at any time: complete **JSON** (full fidelity) and **CSV** (Goodreads-compatible for round-trip). Core to the "own your data" promise; available via UI and API
 
 ### Future (post-MVP)
 
 - [ ] Multi-user / multi-tenant support (open registration, per-user data isolation)
-- [ ] Series / volume tracking (e.g. "Mistborn #1")
+- [x] Series / volume tracking (e.g. "Mistborn #1")
 - [ ] Internationalisation (i18n) of the UI (MVP is English-only; per-book `language` is still supported)
-- [ ] Public profile with embeddable shelf widget
+- [x] Public profile with embeddable shelf widget
 - [ ] OAuth (Google, GitHub login)
-- [ ] Reading goals & challenges
-- [ ] OPDS sync
-- [ ] Webhooks for automation (e.g. "notify when book status changes")
+- [x] Reading goals & challenges
+- [x] OPDS sync
+- [x] Webhooks for automation (e.g. "notify when book status changes")
 - [ ] Collaborative shelves / shared lists
 - [ ] AI-powered recommendations
 
