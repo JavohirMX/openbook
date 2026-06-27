@@ -1,5 +1,6 @@
 from django import forms
 
+from books.covers import CoverUploadError, validate_cover_upload
 from books.isbn import normalize_and_validate
 from books.models import AuthorRole, Book, Genre, BookNote, Quote, ReadingGoal, ReadingStatus, Review, Series, Shelf
 
@@ -60,6 +61,24 @@ class BookForm(forms.ModelForm):
         required=False,
         widget=forms.TextInput(attrs={"class": INPUT_CLASS, "placeholder": "ISBN-10 or ISBN-13"}),
     )
+    cover_image = forms.FileField(
+        label="Cover image",
+        required=False,
+        widget=forms.ClearableFileInput(
+            attrs={
+                "class": "file-input text-sm",
+                "accept": "image/jpeg,image/png,image/webp,image/gif",
+            }
+        ),
+        help_text="JPEG, PNG, WebP, or GIF. Max 2 MB.",
+    )
+    remove_cover = forms.BooleanField(
+        label="Remove uploaded cover",
+        required=False,
+        widget=forms.CheckboxInput(
+            attrs={"class": "h-4 w-4 border-neutral-300 dark:border-neutral-700"}
+        ),
+    )
 
     class Meta:
         model = Book
@@ -117,6 +136,24 @@ class BookForm(forms.ModelForm):
             self.fields["editor_names"].initial = ", ".join(role_names[AuthorRole.EDITOR])
             self.fields["translator_names"].initial = ", ".join(role_names[AuthorRole.TRANSLATOR])
             self.fields["illustrator_names"].initial = ", ".join(role_names[AuthorRole.ILLUSTRATOR])
+        from books.covers import stored_cover_is_valid
+
+        self.show_remove_cover = bool(
+            self.instance and self.instance.pk and stored_cover_is_valid(self.instance)
+        )
+        if not self.show_remove_cover:
+            self.fields.pop("remove_cover", None)
+
+    def clean_cover_image(self):
+        uploaded = self.cleaned_data.get("cover_image")
+        if not uploaded:
+            return uploaded
+        try:
+            validate_cover_upload(uploaded)
+        except CoverUploadError as exc:
+            raise forms.ValidationError(str(exc)) from exc
+        uploaded.seek(0)
+        return uploaded
 
     def clean(self):
         cleaned = super().clean()

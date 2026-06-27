@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Manual book cover upload on Add/Edit Book forms (with preview), clickable empty-cover affordance on book detail, cover removal, auto-lock of `cover_url` after upload, and REST API multipart upload via `cover_image` / `clear_cover`.
+
 #### Batch 9 — UX roadmap (audit implementation)
 - Reading goals UI in Settings; dashboard goal CTA and streak display
 - Reading Log journal with date picker and month navigation for finishes

@@ -420,3 +420,48 @@ def download_cover(book: Book, *, url: str | None = None, force: bool = False) -
 def cover_content_type(path: str) -> str:
     guessed, _ = mimetypes.guess_type(path)
     return guessed or "application/octet-stream"
+
+
+class CoverUploadError(ValueError):
+    """Raised when a user-uploaded cover file fails validation."""
+
+
+def validate_cover_upload(uploaded_file) -> tuple[bytes, str]:
+    """Validate a user-uploaded cover file; return (bytes, extension)."""
+    content = uploaded_file.read()
+    if not content:
+        raise CoverUploadError("Cover image file is empty.")
+    if len(content) > MAX_COVER_BYTES:
+        raise CoverUploadError("Cover image must be 2 MB or smaller.")
+
+    content_type = getattr(uploaded_file, "content_type", "") or ""
+    ext = _extension_for_response(content_type, content)
+    if not ext:
+        raise CoverUploadError("Cover must be JPEG, PNG, WebP, or GIF.")
+    if is_placeholder_image(content, openlibrary=True):
+        raise CoverUploadError("Cover image is too small or invalid.")
+
+    return content, ext
+
+
+def lock_cover_metadata(book: Book) -> None:
+    locked = list(book.metadata_locked_fields or [])
+    if "cover_url" not in locked:
+        locked.append("cover_url")
+        book.metadata_locked_fields = locked
+        book.save(update_fields=["metadata_locked_fields", "updated_at"])
+
+
+def save_uploaded_cover(book: Book, uploaded_file) -> bool:
+    content, ext = validate_cover_upload(uploaded_file)
+    _save_cover_bytes(book, content, ext)
+    lock_cover_metadata(book)
+    return True
+
+
+def remove_stored_cover(book: Book) -> bool:
+    if not book.cover_image:
+        return False
+    book.cover_image.delete(save=False)
+    book.save(update_fields=["cover_image", "updated_at"])
+    return True

@@ -1,7 +1,14 @@
 from django.db.models import Q
 from rest_framework import serializers
 
-from books.covers import cover_served_url, download_cover
+from books.covers import (
+    CoverUploadError,
+    cover_served_url,
+    download_cover,
+    remove_stored_cover,
+    save_uploaded_cover,
+    validate_cover_upload,
+)
 from books.exceptions import DuplicateISBNError
 from books.isbn import normalize_and_validate
 from books.metadata import MetadataService
@@ -156,6 +163,8 @@ class BookSerializer(serializers.ModelSerializer):
         max_length=500,
     )
     status = serializers.SerializerMethodField()
+    cover_image = serializers.FileField(write_only=True, required=False, allow_null=True)
+    clear_cover = serializers.BooleanField(write_only=True, required=False, default=False)
 
     class Meta:
         model = Book
@@ -171,6 +180,8 @@ class BookSerializer(serializers.ModelSerializer):
             "publisher",
             "description",
             "cover_url",
+            "cover_image",
+            "clear_cover",
             "openlibrary_work_id",
             "openlibrary_edition_key",
             "google_books_id",
@@ -200,6 +211,29 @@ class BookSerializer(serializers.ModelSerializer):
         if hasattr(obj, "reading_log"):
             return obj.reading_log.status
         return ReadingStatus.NOT_STARTED
+
+    def validate_cover_image(self, value):
+        if not value:
+            return value
+        try:
+            validate_cover_upload(value)
+        except CoverUploadError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+        value.seek(0)
+        return value
+
+    def _apply_cover_upload(self, book, *, cover_image=None, clear_cover=False, old_cover_url=None):
+        if clear_cover:
+            remove_stored_cover(book)
+            return
+        if cover_image:
+            save_uploaded_cover(book, cover_image)
+            return
+        new_cover_url = book.cover_url
+        if old_cover_url is not None and new_cover_url and new_cover_url != old_cover_url:
+            download_cover(book, force=True)
+        elif book.cover_url and not book.cover_image:
+            download_cover(book)
 
     def validate(self, attrs):
         isbn_13 = attrs.get("isbn_13")
@@ -249,6 +283,8 @@ class BookSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         author_names = validated_data.pop("author_names", [])
         genre_names = validated_data.pop("genre_names", [])
+        cover_image = validated_data.pop("cover_image", None)
+        validated_data.pop("clear_cover", None)
         series = self._resolve_series(validated_data)
 
         final_13 = validated_data.get("isbn_13")
@@ -279,13 +315,17 @@ class BookSerializer(serializers.ModelSerializer):
             attach_genres_to_book(book, genres)
 
         create_reading_log_for_book(book)
-        if book.cover_url:
+        if cover_image:
+            save_uploaded_cover(book, cover_image)
+        elif book.cover_url:
             download_cover(book)
         return book
 
     def update(self, instance, validated_data):
         author_names = validated_data.pop("author_names", None)
         genre_names = validated_data.pop("genre_names", None)
+        cover_image = validated_data.pop("cover_image", None)
+        clear_cover = validated_data.pop("clear_cover", False)
         series = self._resolve_series(validated_data, instance=instance)
         old_cover_url = instance.cover_url
 
@@ -300,11 +340,12 @@ class BookSerializer(serializers.ModelSerializer):
             genres = get_or_create_genres(genre_names, source=GenreSource.USER)
             attach_genres_to_book(instance, genres)
 
-        new_cover_url = validated_data.get("cover_url")
-        if new_cover_url and new_cover_url != old_cover_url:
-            download_cover(instance, force=True)
-        elif instance.cover_url and not instance.cover_image:
-            download_cover(instance)
+        self._apply_cover_upload(
+            instance,
+            cover_image=cover_image,
+            clear_cover=clear_cover,
+            old_cover_url=old_cover_url,
+        )
 
         return instance
 

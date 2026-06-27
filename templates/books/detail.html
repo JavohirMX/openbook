@@ -15,7 +15,7 @@
   <div class="surface-padded">
     <div class="flex flex-col lg:flex-row gap-8">
       <div class="lg:sticky lg:top-8 lg:self-start shrink-0">
-        {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-40" height="h-60" extra_class="mx-auto lg:mx-0" %}
+        {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-40" height="h-60" extra_class="mx-auto lg:mx-0" upload_href=book_edit_url %}
       </div>
       <div class="flex-1 min-w-0">
         <h1 class="page-title">{{ book.title }}</h1>

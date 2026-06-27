@@ -3,6 +3,7 @@
 {% block title %}{{ title }} — openbook{% endblock %}
 {% block extra_head %}
 <script src="{% static 'books/barcode.js' %}" defer></script>
+<script src="{% static 'books/cover-upload.js' %}" defer></script>
 {% endblock %}
 {% block content %}
 <h1 class="page-title mb-6">{{ title }}</h1>
@@ -16,7 +17,7 @@
   </form>
 </div>
 
-<form method="post" class="surface-padded max-w-2xl" data-disable-on-submit>
+<form method="post" enctype="multipart/form-data" class="surface-padded max-w-2xl" data-disable-on-submit>
   {% csrf_token %}
   <div class="mb-4">
     <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1" for="metadata-search-input">Search by title or author</label>

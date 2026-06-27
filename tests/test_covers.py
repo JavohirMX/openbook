@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from accounts.factories import UserFactory
 from books.covers import (
+    CoverUploadError,
     clear_invalid_cover,
     clear_invalid_stored_cover,
     cover_display_url_for,
@@ -15,7 +16,11 @@ from books.covers import (
     fetch_valid_cover_url,
     has_valid_cover,
     is_placeholder_image,
+    lock_cover_metadata,
+    remove_stored_cover,
     resolve_openlibrary_cover_urls,
+    save_uploaded_cover,
+    validate_cover_upload,
     with_default_false,
 )
 from books.factories import BookFactory
@@ -515,3 +520,66 @@ def test_download_cover_falls_back_to_next_size(settings, tmp_path):
 
     book.refresh_from_db()
     assert book.cover_image
+
+
+class _UploadFile:
+    def __init__(self, content: bytes, content_type: str = "image/jpeg", name: str = "cover.jpg"):
+        self.content = content
+        self.content_type = content_type
+        self.name = name
+        self._pos = 0
+
+    def read(self, size=-1):
+        if size < 0:
+            data = self.content[self._pos :]
+            self._pos = len(self.content)
+            return data
+        data = self.content[self._pos : self._pos + size]
+        self._pos += len(data)
+        return data
+
+    def seek(self, pos):
+        self._pos = pos
+
+
+@pytest.mark.django_db
+def test_validate_cover_upload_accepts_jpeg(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    content, ext = validate_cover_upload(_UploadFile(REAL_JPEG))
+    assert ext == "jpg"
+    assert len(content) == len(REAL_JPEG)
+
+
+@pytest.mark.django_db
+def test_validate_cover_upload_rejects_oversize(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    with pytest.raises(CoverUploadError, match="2 MB"):
+        validate_cover_upload(_UploadFile(b"\xff\xd8\xff" + b"\x00" * (2 * 1024 * 1024 + 1)))
+
+
+@pytest.mark.django_db
+def test_validate_cover_upload_rejects_placeholder(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    with pytest.raises(CoverUploadError, match="invalid"):
+        validate_cover_upload(_UploadFile(OL_PLACEHOLDER_GIF, content_type="image/gif", name="cover.gif"))
+
+
+@pytest.mark.django_db
+def test_save_uploaded_cover_locks_metadata(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    book = BookFactory(cover_url="https://example.com/cover.jpg", metadata_locked_fields=[])
+    save_uploaded_cover(book, _UploadFile(REAL_JPEG))
+    book.refresh_from_db()
+    assert book.cover_image
+    assert "cover_url" in book.metadata_locked_fields
+
+
+@pytest.mark.django_db
+def test_remove_stored_cover_keeps_cover_url(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    book = BookFactory(cover_url="https://example.com/cover.jpg")
+    book.cover_image.save(f"{book.pk}.jpg", ContentFile(REAL_JPEG), save=True)
+    assert remove_stored_cover(book) is True
+    book.refresh_from_db()
+    assert not book.cover_image
+    assert book.cover_url == "https://example.com/cover.jpg"

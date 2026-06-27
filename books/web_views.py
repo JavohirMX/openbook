@@ -103,6 +103,7 @@ from books.stats import (
     stats_available_years,
 )
 from books.status_shelves import get_status_shelf, get_status_shelves
+from books.covers import download_cover, remove_stored_cover, save_uploaded_cover
 
 
 METADATA_LOCK_FIELDS = [
@@ -425,6 +426,7 @@ class BookDetailView(LoginRequiredMixin, DetailView):
         ctx["all_book_tags"] = BookTag.objects.all()
         ctx["metadata_lock_fields"] = METADATA_LOCK_FIELDS
         ctx["metadata_locked_fields"] = book.metadata_locked_fields or []
+        ctx["book_edit_url"] = reverse("web:book-edit", kwargs={"pk": book.pk})
         primary_author = book.authors.first()
         if primary_author:
             ctx["same_author_books"] = (
@@ -469,7 +471,9 @@ class BookCreateView(LoginRequiredMixin, CreateView):
         if genres:
             attach_genres_to_book(book, list(genres))
         create_reading_log_for_book(book)
-        if book.cover_url:
+        if form.cleaned_data.get("cover_image"):
+            save_uploaded_cover(book, form.cleaned_data["cover_image"])
+        elif book.cover_url:
             download_cover(book)
         warnings = getattr(form, "isbn_warnings", [])
         for w in warnings:
@@ -499,7 +503,11 @@ class BookUpdateView(LoginRequiredMixin, UpdateView):
         if genres is not None:
             attach_genres_to_book(book, list(genres))
         new_cover_url = form.cleaned_data.get("cover_url")
-        if new_cover_url and new_cover_url != old_cover_url:
+        if form.cleaned_data.get("remove_cover"):
+            remove_stored_cover(book)
+        elif form.cleaned_data.get("cover_image"):
+            save_uploaded_cover(book, form.cleaned_data["cover_image"])
+        elif new_cover_url and new_cover_url != old_cover_url:
             download_cover(book, force=True)
         elif book.cover_url and not book.cover_image:
             download_cover(book)

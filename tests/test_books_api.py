@@ -134,6 +134,40 @@ class TestBooksCRUD:
         book.refresh_from_db()
         assert book.title == "Updated Title"
 
+    def test_patch_upload_cover(self, authenticated_client, book_detail_url, settings, tmp_path):
+        import io
+
+        settings.MEDIA_ROOT = tmp_path
+        book = BookFactory(title="API Cover Book", cover_url="https://example.com/cover.jpg")
+        upload = io.BytesIO(b"\xff\xd8\xff\xe0" + b"\x00" * 2000)
+        upload.name = "cover.jpg"
+        response = authenticated_client.patch(
+            book_detail_url(book.id),
+            {"cover_image": upload},
+            format="multipart",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        book.refresh_from_db()
+        assert book.cover_image
+        assert "cover_url" in book.metadata_locked_fields
+        assert response.json()["data"]["cover_url"]
+
+    def test_patch_clear_cover(self, authenticated_client, book_detail_url, settings, tmp_path):
+        from django.core.files.base import ContentFile
+
+        settings.MEDIA_ROOT = tmp_path
+        book = BookFactory(cover_url="https://example.com/cover.jpg")
+        book.cover_image.save(f"{book.pk}.jpg", ContentFile(b"\xff\xd8\xff\xe0" + b"\x00" * 2000), save=True)
+        response = authenticated_client.patch(
+            book_detail_url(book.id),
+            {"clear_cover": True},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        book.refresh_from_db()
+        assert not book.cover_image
+        assert book.cover_url == "https://example.com/cover.jpg"
+
 
 @pytest.mark.django_db
 class TestBooksSearchAndFilter:

@@ -4,5 +4,9 @@
   <span class="hidden absolute inset-0 bg-neutral-200 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-500 dark:text-neutral-400 text-xs" aria-hidden="true">No cover</span>
 </span>
 {% else %}
+{% if upload_href %}
+<a href="{{ upload_href }}#cover-upload" class="{{ width|default:'w-12' }} {{ height|default:'h-16' }} bg-neutral-200 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-500 dark:text-neutral-400 text-xs shrink-0 {{ extra_class|default:'' }} hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-colors" aria-label="Upload cover">Upload cover</a>
+{% else %}
 <div class="{{ width|default:'w-12' }} {{ height|default:'h-16' }} bg-neutral-200 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-500 dark:text-neutral-400 text-xs shrink-0 {{ extra_class|default:'' }}" aria-hidden="true">No cover</div>
+{% endif %}
 {% endif %}

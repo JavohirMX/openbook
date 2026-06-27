@@ -1,0 +1,36 @@
+<section id="cover-upload" class="mb-4">
+  <h2 class="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Cover</h2>
+  <div class="flex flex-col sm:flex-row gap-4 items-start">
+    <div class="shrink-0">
+      {% if form.instance.pk and form.instance.cover_display_url %}
+      <img src="{{ form.instance.cover_display_url }}" alt="Current cover" id="cover-current" class="w-24 h-36 object-cover border border-neutral-200 dark:border-neutral-700" referrerpolicy="no-referrer">
+      {% else %}
+      <div id="cover-current" class="w-24 h-36 bg-neutral-200 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-500 dark:text-neutral-400 text-xs text-center px-2">No cover</div>
+      {% endif %}
+      <img src="" alt="Cover preview" id="cover-preview" class="hidden w-24 h-36 object-cover border border-neutral-200 dark:border-neutral-700 mt-2">
+    </div>
+    <div class="flex-1 min-w-0 space-y-4">
+      <div>
+        <label for="{{ form.cover_image.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ form.cover_image.label }}</label>
+        {{ form.cover_image }}
+        {% if form.cover_image.help_text %}<p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{{ form.cover_image.help_text }}</p>{% endif %}
+        {% if form.cover_image.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.cover_image.errors.0 }}</p>{% endif %}
+      </div>
+      {% if form.remove_cover %}
+      <div>
+        <label class="inline-flex items-center gap-2 text-sm">
+          {{ form.remove_cover }}
+          <span>{{ form.remove_cover.label }}</span>
+        </label>
+        {% if form.remove_cover.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.remove_cover.errors.0 }}</p>{% endif %}
+      </div>
+      {% endif %}
+      <div>
+        <label for="{{ form.cover_url.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ form.cover_url.label }}</label>
+        {{ form.cover_url }}
+        {% if form.cover_url.errors %}<p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.cover_url.errors.0 }}</p>{% endif %}
+        <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Optional remote cover URL. Uploaded image takes priority when present.</p>
+      </div>
+    </div>
+  </div>
+</section>

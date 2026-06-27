@@ -1,5 +1,5 @@
 {% for field in form.visible_fields %}
-{% if field.name != 'isbn' %}
+{% if field.name != 'isbn' and field.name != 'cover_url' and field.name != 'cover_image' and field.name != 'remove_cover' %}
 <div class="mb-4">
   <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{{ field.label }}</label>
   {{ field }}
@@ -7,3 +7,4 @@
 </div>
 {% endif %}
 {% endfor %}
+{% include "books/partials/cover_upload_section.html" %}

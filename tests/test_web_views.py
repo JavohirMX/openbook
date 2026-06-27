@@ -463,3 +463,63 @@ def test_book_list_filter_panel_open_when_filters_active(logged_in_client):
     assert b"1 active" in response.content
     assert b"Clear filters" in response.content
     assert b'id="book-filter-panel" class="mb-4 "' in response.content
+
+
+REAL_JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 2000
+
+
+def _book_form_payload(**overrides):
+    data = {
+        "title": overrides.pop("title", "Test Book"),
+        "author_names": "",
+        "format": "physical",
+        "language": "en",
+    }
+    data.update(overrides)
+    return data
+
+
+@pytest.mark.django_db
+def test_book_edit_upload_cover(settings, tmp_path, logged_in_client):
+    import io
+
+    settings.MEDIA_ROOT = tmp_path
+    book = BookFactory(title="Cover Upload Book", cover_url="https://example.com/old.jpg")
+    upload = io.BytesIO(REAL_JPEG)
+    upload.name = "cover.jpg"
+    response = logged_in_client.post(
+        reverse("web:book-edit", kwargs={"pk": book.pk}),
+        {**_book_form_payload(title="Cover Upload Book"), "cover_url": "https://example.com/new.jpg", "cover_image": upload},
+    )
+    assert response.status_code == 302
+    book.refresh_from_db()
+    assert book.cover_image
+    assert book.cover_url == "https://example.com/new.jpg"
+    assert "cover_url" in book.metadata_locked_fields
+
+
+@pytest.mark.django_db
+def test_book_edit_remove_cover(settings, tmp_path, logged_in_client):
+    from django.core.files.base import ContentFile
+
+    settings.MEDIA_ROOT = tmp_path
+    book = BookFactory(title="Remove Cover Book", cover_url="https://example.com/cover.jpg")
+    book.cover_image.save(f"{book.pk}.jpg", ContentFile(REAL_JPEG), save=True)
+    response = logged_in_client.post(
+        reverse("web:book-edit", kwargs={"pk": book.pk}),
+        {**_book_form_payload(title="Remove Cover Book"), "cover_url": "https://example.com/cover.jpg", "remove_cover": "on"},
+    )
+    assert response.status_code == 302
+    book.refresh_from_db()
+    assert not book.cover_image
+    assert book.cover_url == "https://example.com/cover.jpg"
+
+
+@pytest.mark.django_db
+def test_book_detail_empty_cover_links_to_edit(logged_in_client):
+    book = BookFactory(title="No Cover Book", cover_url=None)
+    response = logged_in_client.get(reverse("web:book-detail", kwargs={"pk": book.pk}))
+    assert response.status_code == 200
+    edit_url = reverse("web:book-edit", kwargs={"pk": book.pk})
+    assert f'href="{edit_url}#cover-upload"' in response.content.decode()
+    assert "Upload cover" in response.content.decode()
