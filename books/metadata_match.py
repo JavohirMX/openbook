@@ -136,6 +136,10 @@ def _should_auto_apply(scored: list[tuple[dict, float]]) -> bool:
     return True
 
 
+def _interactive_hydrate_limit() -> int:
+    return int(getattr(settings, "METADATA_INTERACTIVE_HYDRATE_LIMIT", 2))
+
+
 def lookup_for_book(book: Book, *, import_context: bool = False) -> LookupResult:
     service = MetadataService()
     context = _book_context(book)
@@ -145,13 +149,16 @@ def lookup_for_book(book: Book, *, import_context: bool = False) -> LookupResult
     if isbn:
         isbn_meta = service.lookup_isbn(isbn, import_context=import_context)
         if isbn_meta:
-            hydrated = hydrate_candidate(
-                isbn_meta,
-                service.session,
-                get_fn=service._get_openlibrary_json,
-                import_context=import_context,
-            )
-            candidates.append(hydrated)
+            if isbn_meta.get("openlibrary_work_id") or isbn_meta.get("openlibrary_edition_key"):
+                candidates.append(isbn_meta)
+            else:
+                hydrated = hydrate_candidate(
+                    isbn_meta,
+                    service.session,
+                    get_fn=service._get_openlibrary_json,
+                    import_context=import_context,
+                )
+                candidates.append(hydrated)
 
     query_parts = [book.title]
     primary = _primary_author(book)
@@ -161,7 +168,10 @@ def lookup_for_book(book: Book, *, import_context: bool = False) -> LookupResult
 
     if query and (not candidates or not candidates[0].get("cover_url") or not candidates[0].get("genres")):
         search_hits = _search_all_sources(service, query, import_context=import_context)
-        for hit in search_hits[:5]:
+        hydrate_limit = len(search_hits) if import_context else min(
+            len(search_hits), _interactive_hydrate_limit()
+        )
+        for hit in search_hits[:hydrate_limit]:
             hydrated = hydrate_candidate(
                 hit,
                 service.session,

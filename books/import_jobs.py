@@ -14,11 +14,12 @@ from books.import_export import (
     preview_goodreads_csv,
     preview_storygraph_csv,
 )
-from books.library_maintenance import BackfillResult, backfill_metadata
-from books.models import ImportJob, ImportJobKind, ImportJobStatus
+from books.library_maintenance import BackfillResult, EnrichResult, backfill_metadata, refresh_book_metadata
+from books.models import Book, ImportJob, ImportJobKind, ImportJobStatus
 
 CANCELLABLE_KINDS = {
     ImportJobKind.METADATA_BACKFILL,
+    ImportJobKind.METADATA_REFRESH,
     ImportJobKind.GOODREADS_CSV,
     ImportJobKind.STORYGRAPH_CSV,
 }
@@ -81,6 +82,31 @@ def create_metadata_backfill_job(user, book_ids: list[str]) -> ImportJob:
     )
     _schedule_import_processing_on_commit()
     return job
+
+
+def create_metadata_refresh_job(user, book_id: str) -> ImportJob:
+    cleaned = str(book_id)
+    job = ImportJob.objects.create(
+        user=user,
+        kind=ImportJobKind.METADATA_REFRESH,
+        status=ImportJobStatus.PENDING,
+        book_ids=[cleaned],
+        progress_total=1,
+    )
+    _schedule_import_processing_on_commit()
+    return job
+
+
+def active_metadata_refresh_job(user, book_id: str) -> ImportJob | None:
+    book_id = str(book_id)
+    for job in ImportJob.objects.filter(
+        user=user,
+        kind=ImportJobKind.METADATA_REFRESH,
+        status__in=(ImportJobStatus.PENDING, ImportJobStatus.RUNNING),
+    ).order_by("-created_at")[:20]:
+        if book_id in (job.book_ids or []):
+            return job
+    return None
 
 
 def confirm_csv_job(job: ImportJob) -> ImportJob:
@@ -149,6 +175,10 @@ def _backfill_result_to_dict(result: BackfillResult) -> dict:
     }
 
 
+def _refresh_result_to_dict(result: EnrichResult) -> dict:
+    return {"updated_fields": result.updated_fields}
+
+
 def _make_progress_updater(job_id):
     def update_progress(done: int, total: int):
         ImportJob.objects.filter(pk=job_id).update(
@@ -205,6 +235,16 @@ def run_import_job(job: ImportJob) -> ImportJob:
             cancelled = should_stop()
             job.result = _backfill_result_to_dict(result)
             job.status = ImportJobStatus.CANCELLED if cancelled else ImportJobStatus.COMPLETED
+        elif job.kind == ImportJobKind.METADATA_REFRESH:
+            book_id = job.book_ids[0] if job.book_ids else None
+            if not book_id:
+                raise ValueError("No book_id on metadata refresh job")
+            book = Book.objects.get(pk=book_id)
+            result = refresh_book_metadata(book)
+            progress(1, 1)
+            cancelled = should_stop()
+            job.result = _refresh_result_to_dict(result)
+            job.status = ImportJobStatus.CANCELLED if cancelled else ImportJobStatus.COMPLETED
         else:
             raise ValueError(f"Unknown job kind: {job.kind}")
 
@@ -219,6 +259,8 @@ def run_import_job(job: ImportJob) -> ImportJob:
         if result is not None:
             if job.kind == ImportJobKind.METADATA_BACKFILL:
                 job.result = _backfill_result_to_dict(result)
+            elif job.kind == ImportJobKind.METADATA_REFRESH:
+                job.result = _refresh_result_to_dict(result)
             else:
                 job.result = _result_to_dict(result)
     finally:

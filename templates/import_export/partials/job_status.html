@@ -90,6 +90,8 @@
   {% if job.status == "completed" and job.result %}
   {% if job.kind == "metadata_backfill" %}
   {% include "components/dismissible_notice.html" with variant="success" role="status" extra_class="mb-4" content_template="import_export/partials/backfill_complete_message.html" %}
+  {% elif job.kind == "metadata_refresh" %}
+  {% include "components/dismissible_notice.html" with variant="success" role="status" extra_class="mb-4" content_template="import_export/partials/refresh_complete_message.html" %}
   {% else %}
   {% include "components/dismissible_notice.html" with variant="success" role="status" extra_class="mb-4" content_template="import_export/partials/import_complete_message.html" %}
   {% endif %}
@@ -113,6 +115,10 @@
   {% if job.kind == "metadata_backfill" %}
   <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
     Updated {{ job.result.updated|default:0 }}, skipped {{ job.result.skipped|default:0 }}, pending review {{ job.result.pending_review|default:0 }}, failed {{ job.result.failed|default:0 }}.
+  </p>
+  {% elif job.kind == "metadata_refresh" %}
+  <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+    {% if job.result.updated_fields %}Updated: {{ job.result.updated_fields|join:", " }}.{% else %}No new metadata found.{% endif %}
   </p>
   {% else %}
   <p class="text-sm text-neutral-600 dark:text-neutral-400 mb-4">

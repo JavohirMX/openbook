@@ -379,6 +379,7 @@ class ImportJobKind(models.TextChoices):
     GOODREADS_CSV = "goodreads_csv", "Goodreads CSV"
     STORYGRAPH_CSV = "storygraph_csv", "StoryGraph CSV"
     METADATA_BACKFILL = "metadata_backfill", "Metadata backfill"
+    METADATA_REFRESH = "metadata_refresh", "Metadata refresh"
 
 
 class ImportJobStatus(models.TextChoices):
@@ -442,6 +443,7 @@ class ImportJob(models.Model):
     def is_cancellable(self):
         return self.kind in (
             ImportJobKind.METADATA_BACKFILL,
+            ImportJobKind.METADATA_REFRESH,
             ImportJobKind.GOODREADS_CSV,
             ImportJobKind.STORYGRAPH_CSV,
         ) and self.status in (

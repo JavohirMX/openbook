@@ -38,6 +38,8 @@ from books.import_jobs import (
     create_csv_preview_job,
     create_isbn_job,
     create_metadata_backfill_job,
+    create_metadata_refresh_job,
+    active_metadata_refresh_job,
     request_cancel_import_job,
 )
 from books.import_worker import schedule_import_processing
@@ -48,7 +50,6 @@ from books.library_maintenance import (
     find_duplicate_groups,
     library_health_stats,
     merge_books,
-    refresh_book_metadata,
 )
 from books.metadata import MetadataService
 from books.metadata_match import LookupResult, apply_lookup_result, lookup_for_book
@@ -1632,14 +1633,14 @@ def book_refresh_metadata(request, pk):
         messages.warning(request, "Need a title to look up metadata.")
         return redirect("web:book-detail", pk=pk)
 
-    result = refresh_book_metadata(book)
-    if result.updated_fields:
-        labels = ", ".join(result.updated_fields)
-        messages.success(request, f"Updated: {labels}.")
-    else:
-        messages.info(request, "No new metadata found.")
+    active = active_metadata_refresh_job(request.user, book.pk)
+    if active:
+        messages.warning(request, "A metadata refresh is already in progress for this book.")
+        return redirect("web:import-job-detail", pk=active.pk)
 
-    return redirect("web:book-detail", pk=pk)
+    job = create_metadata_refresh_job(request.user, str(book.pk))
+    messages.info(request, "Metadata refresh queued. Processing in the background.")
+    return redirect("web:import-job-detail", pk=job.pk)
 
 
 def embed_widget(request):

@@ -78,7 +78,8 @@
 {% endif %}
 <form method="post" action="{% url 'web:book-refresh-metadata' book.pk %}" class="mt-4" data-disable-on-submit>
   {% csrf_token %}
-  <button type="submit" class="btn-secondary text-sm" data-loading-text="Refreshing…">Refresh metadata</button>
+  <button type="submit" class="btn-secondary text-sm" data-loading-text="Queuing…">Queue metadata refresh</button>
+  <p class="text-xs text-neutral-500 dark:text-neutral-500 mt-1">Runs in the background; you can leave this page.</p>
 </form>
 <form method="post" action="{% url 'web:book-metadata-locks' book.pk %}" class="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800">
   {% csrf_token %}

@@ -2,10 +2,12 @@ from unittest.mock import MagicMock, patch
 
 from django.core.files.base import ContentFile
 
-import pytest
-from django.core.cache import cache
+from django.test import override_settings
 from django.core.management import call_command
 from django.urls import reverse
+
+import pytest
+from django.core.cache import cache
 
 from books.factories import BookAuthorFactory, BookFactory, BookGenreFactory
 from books.import_jobs import create_metadata_backfill_job
@@ -19,8 +21,8 @@ from books.library_maintenance import (
     metadata_missing_fields,
     refresh_book_metadata,
 )
-from books.metadata_match import LookupResult
-from books.models import ImportJobKind, ImportJobStatus
+from books.metadata_match import LookupResult, lookup_for_book
+from books.models import ImportJob, ImportJobKind, ImportJobStatus
 
 VALID_COVER_JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 2000
 OL_PLACEHOLDER_GIF = b"GIF89a" + b"\x01\x00\x01\x00" + b"\x00" * 800
@@ -443,26 +445,38 @@ def test_library_tools_clear_cache(logged_in_client, settings):
 
 
 @pytest.mark.django_db
-def test_book_refresh_metadata_view(logged_in_client):
-    from books.library_maintenance import EnrichResult
-
+def test_book_refresh_metadata_view(logged_in_client, web_user):
     book = BookFactory(isbn_13="9780143127550", cover_url=None)
 
-    with patch(
-        "books.web_views.refresh_book_metadata",
-        return_value=EnrichResult(updated_fields=["cover_url", "pages"]),
-    ):
+    with override_settings(IMPORT_JOB_AUTO_PROCESS=False):
         response = logged_in_client.post(reverse("web:book-refresh-metadata", kwargs={"pk": book.pk}))
 
     assert response.status_code == 302
-    assert response.url == reverse("web:book-detail", kwargs={"pk": book.pk})
+    job = ImportJob.objects.get(user=web_user, kind=ImportJobKind.METADATA_REFRESH)
+    assert response.url == reverse("web:import-job-detail", kwargs={"pk": job.pk})
+    assert job.book_ids == [str(book.pk)]
+
+
+@pytest.mark.django_db
+def test_book_refresh_metadata_duplicate_job_redirects(logged_in_client, web_user):
+    book = BookFactory(isbn_13="9780143127550")
+    from books.import_jobs import create_metadata_refresh_job
+
+    existing = create_metadata_refresh_job(web_user, str(book.pk))
+
+    with override_settings(IMPORT_JOB_AUTO_PROCESS=False):
+        response = logged_in_client.post(reverse("web:book-refresh-metadata", kwargs={"pk": book.pk}))
+
+    assert response.status_code == 302
+    assert response.url == reverse("web:import-job-detail", kwargs={"pk": existing.pk})
+    assert ImportJob.objects.filter(kind=ImportJobKind.METADATA_REFRESH, user=web_user).count() == 1
 
 
 @pytest.mark.django_db
 def test_book_detail_shows_refresh_button(logged_in_client):
     book = BookFactory(isbn_13="9780143127550")
     response = logged_in_client.get(reverse("web:book-detail", kwargs={"pk": book.pk}))
-    assert b"Refresh metadata" in response.content
+    assert b"Queue metadata refresh" in response.content
 
 
 @pytest.mark.django_db
@@ -499,20 +513,36 @@ def test_library_tools_shows_pending_matches(logged_in_client):
 def test_book_detail_shows_refresh_without_isbn(logged_in_client):
     book = BookFactory(isbn_13=None, isbn_10=None, title="Sparse Manual Entry")
     response = logged_in_client.get(reverse("web:book-detail", kwargs={"pk": book.pk}))
-    assert b"Refresh metadata" in response.content
+    assert b"Queue metadata refresh" in response.content
 
 
 @pytest.mark.django_db
-def test_book_refresh_metadata_title_only_book(logged_in_client):
-    from books.library_maintenance import EnrichResult
-
+def test_book_refresh_metadata_title_only_book(logged_in_client, web_user):
     book = BookFactory(isbn_13=None, isbn_10=None, title="Title Only Book")
 
-    with patch(
-        "books.web_views.refresh_book_metadata",
-        return_value=EnrichResult(updated_fields=["pages"]),
-    ):
+    with override_settings(IMPORT_JOB_AUTO_PROCESS=False):
         response = logged_in_client.post(reverse("web:book-refresh-metadata", kwargs={"pk": book.pk}))
 
     assert response.status_code == 302
-    assert response.url == reverse("web:book-detail", kwargs={"pk": book.pk})
+    job = ImportJob.objects.get(user=web_user, kind=ImportJobKind.METADATA_REFRESH)
+    assert response.url == reverse("web:import-job-detail", kwargs={"pk": job.pk})
+
+
+@pytest.mark.django_db
+def test_lookup_for_book_skips_double_hydrate_when_isbn_already_hydrated():
+    book = BookFactory(isbn_13="9780143127550")
+    isbn_meta = {
+        "title": book.title,
+        "openlibrary_work_id": "/works/OL123W",
+        "cover_url": "https://example.com/cover.jpg",
+    }
+
+    with (
+        patch("books.metadata_match.MetadataService") as mock_service_cls,
+        patch("books.metadata_match.hydrate_candidate") as mock_hydrate,
+    ):
+        service = mock_service_cls.return_value
+        service.lookup_isbn.return_value = isbn_meta
+        lookup_for_book(book, import_context=False)
+
+    mock_hydrate.assert_not_called()

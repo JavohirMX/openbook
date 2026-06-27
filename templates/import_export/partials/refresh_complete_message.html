@@ -1,0 +1,7 @@
+{% if job.result.updated_fields %}
+<p class="text-sm text-neutral-700 dark:text-neutral-300">
+  Updated: {{ job.result.updated_fields|join:", " }}.
+</p>
+{% else %}
+<p class="text-sm text-neutral-700 dark:text-neutral-300">No new metadata found.</p>
+{% endif %}

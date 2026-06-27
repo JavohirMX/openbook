@@ -233,7 +233,7 @@ High-confidence matches are applied automatically; ambiguous matches create a `M
 | Entry point | Creates job kind |
 |-------------|------------------|
 | Library Tools → bulk backfill | `metadata_backfill` |
-| Book detail → Refresh metadata | Synchronous `refresh_book_metadata` (no job) |
+| Book detail → Refresh metadata | `metadata_refresh` job (single book) |
 | API | Via import job if exposed |
 
 ---
@@ -267,6 +267,8 @@ Title/author search (`search_books`) queries Open Library first, then Google Boo
 | No contact email | 1.0s (~1 req/s) |
 
 Import-context lookups (`import_context=True`) log at INFO level; interactive lookups log at WARNING on failure.
+
+Interactive title/author search in `lookup_for_book` hydrates at most `METADATA_INTERACTIVE_HYDRATE_LIMIT` candidates (default `2`) to bound Open Library calls during single-book refresh.
 
 ### User-Agent
 

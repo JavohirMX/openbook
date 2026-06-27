@@ -15,6 +15,7 @@ from books.import_jobs import (
     create_csv_preview_job,
     create_isbn_job,
     create_metadata_backfill_job,
+    create_metadata_refresh_job,
     request_cancel_import_job,
     run_import_job,
 )
@@ -261,3 +262,46 @@ def test_api_cancel_import_job(authenticated_client, user):
     body = response.json()["data"]
     assert body["status"] == ImportJobStatus.CANCELLED
     assert body["cancel_requested"] is False
+
+
+@pytest.mark.django_db
+@override_settings(IMPORT_JOB_AUTO_PROCESS=False)
+def test_create_metadata_refresh_job(user):
+    book = BookFactory()
+    job = create_metadata_refresh_job(user, str(book.pk))
+    assert job.kind == ImportJobKind.METADATA_REFRESH
+    assert job.status == ImportJobStatus.PENDING
+    assert job.book_ids == [str(book.pk)]
+    assert job.progress_total == 1
+
+
+@pytest.mark.django_db
+def test_run_import_job_metadata_refresh(user):
+    from books.library_maintenance import EnrichResult
+
+    book = BookFactory(isbn_13="9780143127550")
+    job = create_metadata_refresh_job(user, str(book.pk))
+    job.status = ImportJobStatus.RUNNING
+    job.save(update_fields=["status"])
+
+    with patch(
+        "books.import_jobs.refresh_book_metadata",
+        return_value=EnrichResult(updated_fields=["cover_url", "pages"]),
+    ):
+        run_import_job(job)
+
+    job.refresh_from_db()
+    assert job.status == ImportJobStatus.COMPLETED
+    assert job.result == {"updated_fields": ["cover_url", "pages"]}
+    assert job.progress_done == 1
+    assert job.progress_total == 1
+
+
+@pytest.mark.django_db
+@override_settings(IMPORT_JOB_AUTO_PROCESS=False)
+def test_cancel_pending_metadata_refresh_job(user):
+    book = BookFactory()
+    job = create_metadata_refresh_job(user, str(book.pk))
+    request_cancel_import_job(job)
+    job.refresh_from_db()
+    assert job.status == ImportJobStatus.CANCELLED

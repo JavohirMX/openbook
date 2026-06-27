@@ -101,7 +101,7 @@ flowchart TB
 | `/books/<uuid>/delete/` | `book_soft_delete` | Move to trash |
 | `/books/<uuid>/shelve/`, `/unshelve/` | shelf actions | Custom shelf tags |
 | `/books/<uuid>/review/`, `/reading/`, `/quotes/` | per-book actions | |
-| `/books/<uuid>/refresh-metadata/` | `book_refresh_metadata` | Single-book backfill |
+| `/books/<uuid>/refresh-metadata/` | `book_refresh_metadata` | Queues `metadata_refresh` job |
 | `/authors/`, `/authors/<id>/` | author pages | |
 | `/genres/<slug>/` | `GenreDetailView` | Genre browse |
 | `/shelves/` | `ShelfListView` | Custom + status shelves |
