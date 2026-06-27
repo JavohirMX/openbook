@@ -5,11 +5,12 @@ services:
       - "8000:8000"
     environment:
       DEBUG: "False"
+      SECURE_SSL_REDIRECT: "False"
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DATABASE_URL: ${DATABASE_URL:-postgres://openbook:openbook@db:5432/openbook}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,books.javohirmx.com}
-      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-https://books.javohirmx.com}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://books.javohirmx.com}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       TIME_ZONE: ${TIME_ZONE:-Asia/Tashkent}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       METADATA_IMPORT_DELAY_SECONDS: ${METADATA_IMPORT_DELAY_SECONDS:-0}
@@ -30,9 +31,10 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.openbook.rule=Host(`books.javohirmx.com`)"
-      - "traefik.http.routers.openbook.entrypoints=websecure"
+      - "traefik.http.routers.openbook.entrypoints=web"
       - "traefik.http.services.openbook.loadbalancer.server.port=8000"
     networks:
+      - default
       - web
 
   worker:
@@ -43,7 +45,7 @@ services:
       DEBUG: "False"
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DATABASE_URL: ${DATABASE_URL:-postgres://openbook:openbook@db:5432/openbook}
-      TIME_ZONE: ${TIME_ZONE:-Asia/Tashkent}
+      TIME_ZONE: ${TIME_ZONE}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       METADATA_IMPORT_DELAY_SECONDS: ${METADATA_IMPORT_DELAY_SECONDS:-0}
       IMPORT_GOODREADS_ENRICH_METADATA: ${IMPORT_GOODREADS_ENRICH_METADATA:-true}
@@ -54,6 +56,7 @@ services:
       db:
         condition: service_healthy
     networks:
+      - default
       - web
 
   db:
@@ -77,3 +80,4 @@ volumes:
 networks:
   web:
     external: true
+    name: homelab_web
