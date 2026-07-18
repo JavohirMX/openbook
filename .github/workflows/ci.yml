@@ -28,6 +28,7 @@ jobs:
       DATABASE_URL: postgres://openbook:openbook@localhost:5432/openbook_test
       SECRET_KEY: test-secret-key-for-ci
       DEBUG: "False"
+      SECURE_SSL_REDIRECT: "False"
 
     steps:
       - uses: actions/checkout@v4

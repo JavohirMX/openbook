@@ -23,7 +23,7 @@ def rebuild_book_search_vector(book_id):
     from django.contrib.postgres.search import SearchVector
     from django.db.models import Value
 
-    book = Book.objects.prefetch_related("quotes", "private_notes").select_related("review").get(pk=book_id)
+    book = Book.all_objects.prefetch_related("quotes", "private_notes").select_related("review").get(pk=book_id)
 
     review_text = ""
     if hasattr(book, "review") and book.review.review_text:
@@ -41,7 +41,7 @@ def rebuild_book_search_vector(book_id):
     if extra_text:
         vector += SearchVector(Value(extra_text), weight="D", config="english")
 
-    Book.objects.filter(pk=book_id).update(search_vector=vector)
+    Book.all_objects.filter(pk=book_id).update(search_vector=vector)
 
 
 @receiver(post_save, sender=Book)
