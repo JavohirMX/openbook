@@ -844,7 +844,7 @@ def header_search(request):
     if search:
         params = QueryDict(mutable=True)
         params["search"] = search
-        fake_request = type("R", (), {"GET": params})()
+        fake_request = type("R", (), {"GET": params, "POST": {}})()
         qs, _ = _filter_books(fake_request)
         books = list(qs[:8])
     return render(request, "books/partials/header_search_results.html", {"books": books})
