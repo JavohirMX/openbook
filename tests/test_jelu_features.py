@@ -107,12 +107,14 @@ class TestMetadataSearchAPI:
 @pytest.mark.django_db
 class TestProviderLinksAPI:
     def test_provider_links(self, authenticated_client):
-        book = BookFactory(isbn_13="9780306406157", google_books_id="abc123")
+        book = BookFactory(isbn_13="9780306406157", google_books_id="abc123", title="Example Book")
         response = authenticated_client.get(reverse("book-provider-links", args=[book.pk]))
         assert response.status_code == status.HTTP_200_OK
         names = {link["name"] for link in response.data["links"]}
         assert "Google Books" in names
         assert "Amazon" in names
+        assert "Project Gutenberg" in names
+        assert "Internet Archive" in names
 
 
 @pytest.mark.django_db

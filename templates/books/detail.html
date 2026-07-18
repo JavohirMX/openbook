@@ -107,6 +107,8 @@
   <div class="surface-padded pt-0">
     {% include "components/disclosure_section.html" with title="Book details" content_template="books/partials/book_details.html" open=False %}
 
+    {% include "components/disclosure_section.html" with title="Find online" content_template="books/partials/find_online.html" open=False %}
+
     {% include "components/disclosure_section.html" with title="Reading history" content_template="books/partials/reading_timeline.html" show_count=True count=reading_timeline|length open=reading_timeline %}
 
     {% include "components/disclosure_section.html" with title="Quotes & highlights" content_template="books/partials/quotes_section.html" show_count=True count=quotes|length open=False %}

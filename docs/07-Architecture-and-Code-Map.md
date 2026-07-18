@@ -150,7 +150,7 @@ flowchart TB
 | `library_maintenance.py` | Metadata health stats, per-book enrich, bulk backfill |
 | `stats.py` | Reading statistics aggregation |
 | `embed.py` | Public embed payload for currently reading / recently finished |
-| `provider_links.py` | External links (Open Library, Google Books, Amazon, Goodreads) |
+| `provider_links.py` | Find online links (Open Library, Google Books, Amazon, Goodreads, Project Gutenberg, Internet Archive) |
 | `exceptions.py` | Domain exceptions (e.g. duplicate ISBN → 409) |
 | `signals.py` | ORM signals (search vector updates) |
 | `admin.py` | Django admin registrations |

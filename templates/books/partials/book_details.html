@@ -57,13 +57,6 @@
   </div>
   {% endif %}
 </dl>
-{% if provider_links %}
-<div class="flex flex-wrap gap-3 mt-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-  {% for link in provider_links %}
-  <a href="{{ link.url }}" class="link text-sm" target="_blank" rel="noopener noreferrer">{{ link.name }}</a>
-  {% endfor %}
-</div>
-{% endif %}
 {% if metadata_missing_fields %}
 <div class="mt-4 p-3 border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 text-sm" role="status">
   <p class="font-medium text-amber-900 dark:text-amber-200">Incomplete metadata</p>

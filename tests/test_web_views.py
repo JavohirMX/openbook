@@ -329,6 +329,21 @@ def test_book_detail_book_details_accordion_contains_isbn(logged_in_client):
 
 
 @pytest.mark.django_db
+def test_book_detail_find_online_section(logged_in_client):
+    book = BookFactory(title="Find Me Online", isbn_13="9780143127550")
+    response = logged_in_client.get(reverse("web:book-detail", kwargs={"pk": book.pk}))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Find online" in content
+    assert "disclosure-section" in content
+    assert "Project Gutenberg" in content
+    assert "Internet Archive" in content
+    assert "gutenberg.org" in content
+    assert "archive.org" in content
+    assert content.index("Find online") > content.index("Book details")
+
+
+@pytest.mark.django_db
 def test_book_detail_log_progress_disclosure_markup(logged_in_client):
     book = BookFactory()
     response = logged_in_client.get(reverse("web:book-detail", kwargs={"pk": book.pk}))
