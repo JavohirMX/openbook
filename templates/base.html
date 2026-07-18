@@ -306,7 +306,10 @@
 <script src="{% static 'books/book_sort.js' %}"></script>
 <script src="{% static 'books/star-rating.js' %}"></script>
 <script src="{% static 'books/forms.js' %}"></script>
-{% if user.is_authenticated %}<script src="{% static 'books/shortcuts.js' %}"></script>{% endif %}
+{% if user.is_authenticated %}
+<script src="{% static 'books/shortcuts.js' %}"></script>
+<script src="{% static 'books/inpage_scroll.js' %}?v=3"></script>
+{% endif %}
 {% include "components/toast.html" %}
 </body>
 </html>

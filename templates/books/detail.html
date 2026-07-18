@@ -14,7 +14,7 @@
 <div class="space-y-6">
   <div class="surface-padded">
     <div class="flex flex-col lg:flex-row gap-8">
-      <div class="lg:sticky lg:top-8 lg:self-start shrink-0">
+      <div class="lg:sticky lg:top-8 lg:self-start shrink-0" data-inpage-sticky>
         {% include "components/book_cover.html" with cover_url=book.cover_display_url title=book.title width="w-40" height="h-60" extra_class="mx-auto lg:mx-0" upload_href=book_edit_url %}
       </div>
       <div class="flex-1 min-w-0">
@@ -72,7 +72,7 @@
 
   {% include "books/partials/your_reading_card.html" %}
 
-  <div id="review-section" class="surface-padded">
+  <div id="review-section" class="surface-padded scroll-mt-8">
     <h2 class="section-title mb-4">My Review</h2>
     <p id="rating-summary" class="sr-only">
       {% if review_form.instance.rating %}My rating: {{ review_form.instance.rating }} / 5{% else %}No rating yet{% endif %}
@@ -98,7 +98,7 @@
   </div>
 
   {% if book.description and book.description|length > 200 %}
-  <div id="description-section" class="surface-padded">
+  <div id="description-section" class="surface-padded scroll-mt-8">
     <h2 class="section-title mb-3">Description</h2>
     <p class="text-neutral-600 dark:text-neutral-400 text-sm whitespace-pre-wrap leading-relaxed max-w-prose">{{ book.description }}</p>
   </div>
