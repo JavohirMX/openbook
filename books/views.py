@@ -259,7 +259,7 @@ class BookViewSet(viewsets.ModelViewSet):
 
         try:
             shelf = Shelf.objects.get(pk=shelf_id)
-        except Shelf.DoesNotExist as exc:
+        except (Shelf.DoesNotExist, TypeError, ValueError) as exc:
             raise NotFound("Shelf not found.") from exc
 
         BookshelfItem.objects.get_or_create(book=book, shelf=shelf)
@@ -272,7 +272,10 @@ class BookViewSet(viewsets.ModelViewSet):
         if shelf_id is None:
             raise ValidationError({"shelf_id": ["This field is required."]})
 
-        deleted, _ = BookshelfItem.objects.filter(book=book, shelf_id=shelf_id).delete()
+        try:
+            deleted, _ = BookshelfItem.objects.filter(book=book, shelf_id=shelf_id).delete()
+        except (TypeError, ValueError):
+            deleted = 0
         if not deleted:
             raise NotFound("Book is not on this shelf.")
         return Response({"book_id": str(book.pk), "shelf_id": shelf_id})

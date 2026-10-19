@@ -114,3 +114,20 @@ class TestShelveAPI:
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json()["error"]["code"] == "validation_error"
+
+
+@pytest.mark.django_db
+class TestNonNumericShelfId:
+    def test_shelve_with_non_numeric_id_is_404_not_500(self, authenticated_client):
+        book = BookFactory()
+        response = authenticated_client.post(
+            reverse("book-shelve", args=[book.pk]), {"shelf_id": "abc"}, format="json"
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_unshelve_with_non_numeric_id_is_404_not_500(self, authenticated_client):
+        book = BookFactory()
+        response = authenticated_client.post(
+            reverse("book-unshelve", args=[book.pk]), {"shelf_id": "abc"}, format="json"
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
