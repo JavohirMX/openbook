@@ -198,3 +198,46 @@ def test_api_export_json(authenticated_client):
     response = authenticated_client.get(reverse("api-export"), {"format": "json"})
     assert response.status_code == status.HTTP_200_OK
     assert b"API Export" in response.content
+
+
+def _rows(text):
+    return list(csv.DictReader(io.StringIO(text), restval=""))
+
+
+def test_goodreads_row_tolerates_short_rows():
+    from books.import_export import _parse_goodreads_row
+
+    row = {"Title": "Only Title", "Author": None, "ISBN": None, "Series": None}
+    parsed = _parse_goodreads_row(row)
+    assert parsed["title"] == "Only Title"
+    assert parsed["author"] == ""
+
+
+def test_goodreads_row_ignores_non_ascii_digits():
+    from books.import_export import _parse_goodreads_row
+
+    parsed = _parse_goodreads_row(
+        {"Title": "x", "Number of Pages": "\u00b2", "Year Published": "\u00b2", "My Rating": "\u00b2"}
+    )
+    assert parsed["pages"] is None
+    assert parsed["published_year"] is None
+    assert parsed["rating"] is None
+
+
+def test_storygraph_row_tolerates_short_rows():
+    from books.import_export import _parse_storygraph_row
+
+    parsed = _parse_storygraph_row({"Title": "Only Title", "Authors": None, "ISBN/UID": None})
+    assert parsed["title"] == "Only Title"
+
+
+@pytest.mark.django_db
+def test_import_goodreads_csv_with_short_row_does_not_crash(tmp_path):
+    path = tmp_path / "gr.csv"
+    path.write_text("Title,Author,ISBN,Number of Pages\nOnly Title\nOther,Someone,,12\n")
+    with patch("books.import_export.MetadataService"):
+        from books.import_export import preview_goodreads_csv
+
+        with open(path, "rb") as fh:
+            rows = preview_goodreads_csv(fh)
+    assert [r["title"] for r in rows] == ["Only Title", "Other"]

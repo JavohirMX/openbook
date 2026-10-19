@@ -337,19 +337,20 @@ def _parse_goodreads_series(row: dict) -> tuple[str | None, Decimal | None]:
 
 
 def _parse_goodreads_row(row: dict) -> dict:
+    row = {k: ("" if v is None else v) for k, v in row.items() if isinstance(k, str)}
     title = row.get("Title", "").strip()
     author = row.get("Author", "").strip()
     isbn_13 = _parse_goodreads_isbn(row.get("ISBN13", ""))
     isbn_10 = _parse_goodreads_isbn(row.get("ISBN", ""))
 
     pages = row.get("Number of Pages", "").strip()
-    pages_int = int(pages) if pages.isdigit() else None
+    pages_int = int(pages) if pages.isascii() and pages.isdigit() else None
 
     year = row.get("Year Published", "") or row.get("Original Publication Year", "")
-    year_int = int(year) if str(year).strip().isdigit() else None
+    year_int = int(str(year).strip()) if str(year).strip().isascii() and str(year).strip().isdigit() else None
 
     rating_raw = row.get("My Rating", "0").strip()
-    rating = int(rating_raw) if rating_raw.isdigit() and int(rating_raw) > 0 else None
+    rating = int(rating_raw) if rating_raw.isascii() and rating_raw.isdigit() and int(rating_raw) > 0 else None
 
     exclusive = row.get("Exclusive Shelf", "").strip().lower()
     status = STATUS_MAP.get(exclusive)
@@ -410,7 +411,7 @@ def preview_goodreads_csv(file) -> list[dict]:
     content = file.read()
     if isinstance(content, bytes):
         content = content.decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(content))
+    reader = csv.DictReader(io.StringIO(content), restval="")
     preview = []
     for row in reader:
         parsed = _parse_goodreads_row(row)
@@ -442,7 +443,7 @@ def _read_csv_rows(file) -> list[dict]:
 
     if isinstance(content, bytes):
         content = content.decode("utf-8-sig")
-    return list(csv.DictReader(io.StringIO(content)))
+    return list(csv.DictReader(io.StringIO(content), restval=""))
 
 
 def import_goodreads_csv(
@@ -575,6 +576,7 @@ def _parse_storygraph_dates_read(value: str) -> date | None:
 
 
 def _parse_storygraph_row(row: dict) -> dict:
+    row = {k: ("" if v is None else v) for k, v in row.items() if isinstance(k, str)}
     title = row.get("Title", "").strip()
     authors_raw = row.get("Authors", "").strip()
     authors = [a.strip() for a in authors_raw.split(",") if a.strip()]
