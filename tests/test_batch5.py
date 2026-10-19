@@ -137,6 +137,39 @@ def test_find_duplicate_groups_by_title_author():
 
 
 @pytest.mark.django_db
+def test_find_duplicate_groups_uses_first_author_by_position():
+    # Co-author listed second must not make these look like duplicates.
+    a = BookFactory(title="Shared Title", isbn_13=None, isbn_10=None)
+    BookAuthorFactory(book=a, author__name="Alice", position=1)
+    BookAuthorFactory(book=a, author__name="Zed", position=2)
+    b = BookFactory(title="Shared Title", isbn_13=None, isbn_10=None)
+    BookAuthorFactory(book=b, author__name="Zed", position=1)
+    BookAuthorFactory(book=b, author__name="Alice", position=2)
+
+    groups = find_duplicate_groups()
+    assert all({a.pk, b.pk} != {book.pk for book in g.books} for g in groups)
+
+
+@pytest.mark.django_db
+def test_find_duplicate_groups_query_count_is_constant():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    def make(n):
+        for i in range(n):
+            book = BookFactory(title=f"Unique {i}-{BookFactory._meta.model.objects.count()}", isbn_13=None, isbn_10=None)
+            BookAuthorFactory(book=book)
+
+    make(2)
+    with CaptureQueriesContext(connection) as few:
+        find_duplicate_groups()
+    make(8)
+    with CaptureQueriesContext(connection) as many:
+        find_duplicate_groups()
+    assert len(many) == len(few)
+
+
+@pytest.mark.django_db
 def test_merge_books_combines_metadata_and_soft_deletes_source():
     keeper = BookFactory(title="Keeper", pages=100)
     duplicate = BookFactory(title="Duplicate", pages=None, publisher="Pub Co")

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from django.db import connection
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 
 from books.covers import (
@@ -22,7 +22,7 @@ from books.metadata_match import (
     create_or_update_proposal,
     lookup_for_book,
 )
-from books.models import Book, GenreSource, MetadataMatchProposal, MetadataMatchProposalStatus
+from books.models import Book, BookAuthor, GenreSource, MetadataMatchProposal, MetadataMatchProposalStatus
 from books.services import add_authors_to_book, add_genres_to_book, attach_authors_to_book
 
 logger = logging.getLogger(__name__)
@@ -513,10 +513,17 @@ def find_duplicate_groups() -> list[DuplicateGroup]:
             )
 
     title_author_map: dict[str, list[Book]] = defaultdict(list)
-    for book in Book.objects.prefetch_related("authors").order_by("created_at"):
+    ordered_links = Prefetch(
+        "book_authors",
+        queryset=BookAuthor.objects.select_related("author").order_by("position"),
+    )
+    for book in Book.objects.prefetch_related("authors", ordered_links).order_by("created_at"):
         if book.pk in grouped_book_ids:
             continue
-        primary = book.authors.order_by("book_authors__position").first()
+        # Use the prefetched, position-ordered links: .order_by() on book.authors
+        # would bypass the prefetch and run one query per book.
+        links = list(book.book_authors.all())
+        primary = links[0].author if links else None
         if not primary:
             continue
         key = _book_dedup_key(book.title, primary.name)
