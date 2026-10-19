@@ -151,7 +151,7 @@ def test_goodreads_export_includes_dates_and_additional_authors():
     log.finished_at = __import__("datetime").date(2024, 3, 20)
     log.save()
     Book.objects.filter(pk=book.pk).update(
-        created_at=__import__("datetime").datetime(2022, 5, 1, 12, 0, 0)
+        created_at=__import__("datetime").datetime(2022, 5, 1, 12, 0, 0, tzinfo=__import__("datetime").timezone.utc)
     )
     csv_content = export_csv()
     assert "Co Author" in csv_content
