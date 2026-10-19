@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
@@ -13,6 +14,9 @@ from books.embed import read_books, want_to_read_books
 ATOM_NS = "http://www.w3.org/2005/Atom"
 OPDS_NS = "http://opds-spec.org/ns/1.0"
 DC_NS = "http://purl.org/dc/terms/"
+
+# Characters that are not allowed anywhere in an XML 1.0 document.
+_XML_ILLEGAL = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
 
 
 def _authenticate_opds_request(request):
@@ -111,7 +115,7 @@ def _build_feed(*, title: str, feed_id: str, feed_url: str, entries: list[ET.Ele
     for entry in entries:
         feed.append(entry)
 
-    rough = ET.tostring(feed, encoding="unicode")
+    rough = _XML_ILLEGAL.sub("", ET.tostring(feed, encoding="unicode"))
     return minidom.parseString(rough).toprettyxml(indent="  ")
 
 
