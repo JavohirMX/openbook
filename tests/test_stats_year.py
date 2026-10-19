@@ -258,3 +258,18 @@ class TestStatsWebViews:
         content = response.content.decode()
         assert "Reading Stats" in content
         assert "HX-Trigger" not in response
+
+
+@pytest.mark.django_db
+def test_stats_page_does_not_let_shelf_names_break_out_of_script(logged_in_client):
+    from books.factories import BookshelfItemFactory, ShelfFactory
+
+    shelf = ShelfFactory(name="</script><script>alert(1)</script>")
+    BookshelfItemFactory(shelf=shelf, book=BookFactory())
+
+    response = logged_in_client.get(reverse("web:stats"))
+
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "<script>alert(1)" not in content
+    assert "\\u003c/script\\u003e" in content

@@ -1259,14 +1259,14 @@ class StatsPageView(LoginRequiredMixin, TemplateView):
         ctx["yearly_monthly_reads"] = monthly_reads
         ctx["finish_calendars"] = finish_calendars
         ctx["calendar_range_label"] = finish_calendar_strip_data["range_label"]
-        ctx["stats_json_shelf"] = json.dumps(stats["books_by_shelf"])
-        ctx["stats_json_genre"] = json.dumps(stats["books_by_genre"])
-        ctx["stats_json_monthly"] = json.dumps(monthly_reads)
-        ctx["stats_json_status"] = json.dumps(books_by_status)
-        ctx["stats_json_pages_month"] = json.dumps(pages_per_month)
-        ctx["stats_json_heatmap"] = json.dumps(stats.get("reading_heatmap", []))
-        ctx["stats_json_rating"] = json.dumps(stats.get("rating_distribution", []))
-        ctx["stats_json_format"] = json.dumps(stats.get("format_breakdown", []))
+        ctx["stats_json_shelf"] = _json_for_script(stats["books_by_shelf"])
+        ctx["stats_json_genre"] = _json_for_script(stats["books_by_genre"])
+        ctx["stats_json_monthly"] = _json_for_script(monthly_reads)
+        ctx["stats_json_status"] = _json_for_script(books_by_status)
+        ctx["stats_json_pages_month"] = _json_for_script(pages_per_month)
+        ctx["stats_json_heatmap"] = _json_for_script(stats.get("reading_heatmap", []))
+        ctx["stats_json_rating"] = _json_for_script(stats.get("rating_distribution", []))
+        ctx["stats_json_format"] = _json_for_script(stats.get("format_breakdown", []))
         ctx["stats_dnf"] = stats.get("dnf_stats", {})
         ctx["stats_reading_speed"] = stats.get("reading_speed", {})
 
@@ -1641,6 +1641,16 @@ def book_refresh_metadata(request, pk):
     job = create_metadata_refresh_job(request.user, str(book.pk))
     messages.info(request, "Metadata refresh queued. Processing in the background.")
     return redirect("web:import-job-detail", pk=job.pk)
+
+
+def _json_for_script(value):
+    """json.dumps that is safe to drop into an inline <script> block (no raw <, > or &)."""
+    return (
+        json.dumps(value)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
 
 
 def embed_widget(request):
