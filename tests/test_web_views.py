@@ -662,3 +662,9 @@ def test_book_detail_shows_library_added_date(logged_in_client):
     assert book.created_at.strftime("%b %-d, %Y") in content or book.created_at.strftime("%b %d, %Y").replace("  ", " ") in content
     assert "ago)" in content
 
+
+
+@pytest.mark.django_db
+def test_year_review_out_of_range_is_404(logged_in_client):
+    response = logged_in_client.get(reverse("web:year-review", kwargs={"year": 999999}))
+    assert response.status_code == 404
