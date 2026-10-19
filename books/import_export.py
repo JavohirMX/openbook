@@ -740,6 +740,13 @@ def export_json() -> dict:
     return {"books": data, "version": "0.1.0"}
 
 
+def _csv_safe(value: str) -> str:
+    """Neutralise spreadsheet formulas: prefix a quote when a cell starts with = + - @ or tab/CR."""
+    if value and value[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 def export_csv() -> str:
     import csv
     import io
@@ -774,18 +781,18 @@ def export_csv() -> str:
             date_read = log.finished_at.strftime("%Y/%m/%d")
         date_added = book.created_at.strftime("%Y/%m/%d") if book.created_at else ""
         writer.writerow([
-            book.title,
-            author.name if author else "",
-            additional,
+            _csv_safe(book.title),
+            _csv_safe(author.name if author else ""),
+            _csv_safe(additional),
             f'="{book.isbn_10}"' if book.isbn_10 else "",
             f'="{book.isbn_13}"' if book.isbn_13 else "",
             review.rating if review and review.rating else "0",
-            review.review_text if review and review.review_text else "",
+            _csv_safe(review.review_text if review and review.review_text else ""),
             book.pages or "",
             book.published_year or "",
-            book.publisher or "",
+            _csv_safe(book.publisher or ""),
             exclusive,
-            shelves,
+            _csv_safe(shelves),
             date_read,
             date_added,
         ])
