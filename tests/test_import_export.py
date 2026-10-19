@@ -198,3 +198,17 @@ def test_api_export_json(authenticated_client):
     response = authenticated_client.get(reverse("api-export"), {"format": "json"})
     assert response.status_code == status.HTTP_200_OK
     assert b"API Export" in response.content
+
+
+@pytest.mark.django_db
+def test_export_csv_neutralises_formula_cells():
+    BookFactory(title="=HYPERLINK(\"http://x\",\"a\")", publisher="+cmd", isbn_13="9781234567890")
+    BookFactory(title="Plain Title")
+    rows = list(csv.reader(io.StringIO(export_csv())))
+    titles = [r[0] for r in rows[1:]]
+    assert "'=HYPERLINK(\"http://x\",\"a\")" in titles
+    assert "Plain Title" in titles
+    assert not any(t.startswith("=") for t in titles)
+    assert any(r[9] == "'+cmd" for r in rows[1:])
+    # Goodreads-style ISBN cells keep their intentional ="..." wrapper
+    assert any(r[4] == '="9781234567890"' for r in rows[1:])
