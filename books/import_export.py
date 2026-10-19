@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from books.covers import download_cover
@@ -559,19 +560,20 @@ def _parse_storygraph_date(value: str) -> date | None:
     return None
 
 
+_DATE_TOKEN_RE = re.compile(r"\d{4}[/-]\d{1,2}[/-]\d{1,2}|\d{1,2}/\d{1,2}/\d{4}")
+
+
 def _parse_storygraph_dates_read(value: str) -> date | None:
+    """Return the finish date: the last date in a range, or the only date.
+
+    Splitting on "-" would break ISO dates (2021-03-05), so find whole dates instead.
+    """
     value = (value or "").strip()
     if not value:
         return None
-    if "-" in value:
-        end_part = value.split("-")[-1].strip()
-        if end_part:
-            parsed = _parse_storygraph_date(end_part)
-            if parsed:
-                return parsed
-        start_part = value.split("-")[0].strip()
-        return _parse_storygraph_date(start_part)
-    return _parse_storygraph_date(value)
+    parsed = [_parse_storygraph_date(token) for token in _DATE_TOKEN_RE.findall(value)]
+    parsed = [d for d in parsed if d]
+    return parsed[-1] if parsed else None
 
 
 def _parse_storygraph_row(row: dict) -> dict:
@@ -709,8 +711,24 @@ def import_storygraph_csv(
     return result
 
 
+def _export_queryset():
+    """Books with everything the exports read, loaded in a fixed number of queries."""
+    return Book.objects.prefetch_related(
+        "authors",
+        "genres",
+        Prefetch(
+            "book_authors",
+            queryset=BookAuthor.objects.select_related("author").order_by("position"),
+        ),
+        Prefetch(
+            "bookshelf_items",
+            queryset=BookshelfItem.objects.select_related("shelf").order_by("shelf_id"),
+        ),
+    ).select_related("reading_log", "review")
+
+
 def export_json() -> dict:
-    books = Book.objects.prefetch_related("authors", "genres").select_related("reading_log", "review")
+    books = _export_queryset()
     data = []
     for book in books:
         log = getattr(book, "reading_log", None)
@@ -732,9 +750,7 @@ def export_json() -> dict:
             "status": log.status if log else ReadingStatus.NOT_STARTED,
             "rating": review.rating if review else None,
             "review_text": review.review_text if review else None,
-            "shelves": list(
-                Shelf.objects.filter(bookshelf_items__book=book).values_list("name", flat=True)
-            ),
+            "shelves": [item.shelf.name for item in book.bookshelf_items.all()],
             "created_at": book.created_at.isoformat(),
         })
     return {"books": data, "version": "0.1.0"}
@@ -752,7 +768,7 @@ def export_csv() -> str:
         "Date Read", "Date Added",
     ])
 
-    books = Book.objects.prefetch_related("authors", "genres").select_related("reading_log", "review")
+    books = _export_queryset()
     status_to_shelf = {
         ReadingStatus.FINISHED: "read",
         ReadingStatus.READING: "currently-reading",
@@ -760,15 +776,13 @@ def export_csv() -> str:
     }
 
     for book in books:
-        ordered_authors = list(book.authors.order_by("book_authors__position"))
+        ordered_authors = [link.author for link in book.book_authors.all()]
         author = ordered_authors[0] if ordered_authors else None
         additional = ", ".join(a.name for a in ordered_authors[1:])
         log = getattr(book, "reading_log", None)
         review = getattr(book, "review", None)
         exclusive = status_to_shelf.get(log.status if log else ReadingStatus.NOT_STARTED, "to-read")
-        shelves = ", ".join(
-            Shelf.objects.filter(bookshelf_items__book=book).values_list("name", flat=True)
-        )
+        shelves = ", ".join(item.shelf.name for item in book.bookshelf_items.all())
         date_read = ""
         if log and log.finished_at:
             date_read = log.finished_at.strftime("%Y/%m/%d")

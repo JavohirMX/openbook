@@ -1,5 +1,6 @@
 import csv
 import io
+from datetime import date
 from unittest.mock import patch
 
 import pytest
@@ -198,3 +199,58 @@ def test_api_export_json(authenticated_client):
     response = authenticated_client.get(reverse("api-export"), {"format": "json"})
     assert response.status_code == status.HTTP_200_OK
     assert b"API Export" in response.content
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("2024-03-05", date(2024, 3, 5)),
+        ("2021/03/05", date(2021, 3, 5)),
+        ("2021/03/05-2021/03/10", date(2021, 3, 10)),
+        ("2021-03-05-2021-03-10", date(2021, 3, 10)),
+        ("2021/03/05-", date(2021, 3, 5)),
+        ("", None),
+        ("not a date", None),
+    ],
+)
+def test_parse_storygraph_dates_read(value, expected):
+    from books.import_export import _parse_storygraph_dates_read
+
+    assert _parse_storygraph_dates_read(value) == expected
+
+
+@pytest.mark.django_db
+def test_exports_use_fixed_query_count_and_keep_order():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from books.factories import BookAuthorFactory, ShelfFactory
+    from books.import_export import export_csv, export_json
+
+    shelf_a, shelf_b = ShelfFactory(name="A shelf"), ShelfFactory(name="B shelf")
+
+    def make(n):
+        for i in range(n):
+            book = BookFactory(title=f"Book {i}-{Book.objects.count()}")
+            BookAuthorFactory(book=book, author__name="Second", position=2)
+            BookAuthorFactory(book=book, author__name="First", position=1)
+            book.bookshelf_items.create(shelf=shelf_a)
+            book.bookshelf_items.create(shelf=shelf_b)
+
+    make(2)
+    counts = {}
+    for fn in (export_csv, export_json):
+        with CaptureQueriesContext(connection) as few:
+            fn()
+        counts[fn] = len(few)
+    make(8)
+    for fn in (export_csv, export_json):
+        with CaptureQueriesContext(connection) as many:
+            fn()
+        assert len(many) == counts[fn], fn.__name__
+
+    rows = list(csv.DictReader(io.StringIO(export_csv())))
+    assert rows[0]["Author"] == "First"
+    assert rows[0]["Additional Authors"] == "Second"
+    assert rows[0]["Bookshelves"] == "A shelf, B shelf"
+    assert export_json()["books"][0]["shelves"] == ["A shelf", "B shelf"]
