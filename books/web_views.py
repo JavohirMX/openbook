@@ -202,10 +202,11 @@ def _filter_books(request):
     else:
         qs = apply_book_sort(qs, sort)
 
+    # A non-numeric id can never match, so show nothing instead of raising a 500.
     if shelf_id:
-        qs = qs.filter(bookshelf_items__shelf_id=shelf_id)
+        qs = qs.filter(bookshelf_items__shelf_id=shelf_id) if shelf_id.isdigit() else qs.none()
     if genre_id:
-        qs = qs.filter(book_genres__genre_id=genre_id)
+        qs = qs.filter(book_genres__genre_id=genre_id) if genre_id.isdigit() else qs.none()
     if series_param:
         if str(series_param).isdigit():
             qs = qs.filter(series_id=series_param)
@@ -928,8 +929,9 @@ def book_shelve(request, pk):
 def book_unshelve(request, pk):
     book = get_object_or_404(Book, pk=pk)
     if request.method == "POST":
-        shelf_id = request.POST.get("shelf_id")
-        BookshelfItem.objects.filter(book=book, shelf_id=shelf_id).delete()
+        shelf_id = request.POST.get("shelf_id", "")
+        if shelf_id.isdigit():
+            BookshelfItem.objects.filter(book=book, shelf_id=shelf_id).delete()
         messages.success(request, "Book removed from shelf.")
     if request.headers.get("HX-Request"):
         return render(

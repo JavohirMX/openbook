@@ -662,3 +662,25 @@ def test_book_detail_shows_library_added_date(logged_in_client):
     assert book.created_at.strftime("%b %-d, %Y") in content or book.created_at.strftime("%b %d, %Y").replace("  ", " ") in content
     assert "ago)" in content
 
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("param", ["genre", "shelf"])
+def test_book_list_non_numeric_filter_shows_nothing_instead_of_500(logged_in_client, param):
+    BookFactory(title="Visible Book")
+
+    response = logged_in_client.get(reverse("web:book-list"), {param: "abc"})
+
+    assert response.status_code == 200
+    assert b"Visible Book" not in response.content
+
+
+@pytest.mark.django_db
+def test_book_unshelve_non_numeric_shelf_id_does_not_500(logged_in_client):
+    book = BookFactory()
+
+    response = logged_in_client.post(
+        reverse("web:book-unshelve", kwargs={"pk": book.pk}), {"shelf_id": "abc"}
+    )
+
+    assert response.status_code in (200, 302)
