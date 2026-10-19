@@ -147,6 +147,21 @@ class TestOpdsFeed:
         assert "Read Book" in body
         assert "atom:entry" in body or "entry" in body
 
+    def test_opds_survives_control_characters_in_titles(self, client, user):
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.embed_enabled = True
+        profile.embed_key = "opds-ctrl"
+        profile.save()
+        BookFactory(title="Bad\x0bTitle")
+        BookFactory(title="Fine Title")
+
+        response = client.get(reverse("opds-catalog"), {"key": "opds-ctrl"})
+
+        assert response.status_code == 200
+        body = response.content.decode()
+        assert "BadTitle" in body
+        assert "Fine Title" in body
+
     def test_opds_with_api_token(self, client, user):
         token = ApiToken.create_for_user(user, label="OPDS")
         BookFactory(title="Token Book")
