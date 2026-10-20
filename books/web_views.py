@@ -208,13 +208,15 @@ def _filter_books(request):
         qs = qs.filter(book_genres__genre_id=genre_id)
     if series_param:
         if str(series_param).isdigit():
-            qs = qs.filter(series_id=series_param)
+            # Ids beyond the database integer range cannot match anything.
+            qs = qs.filter(series_id=series_param) if len(series_param) <= 9 else qs.none()
         else:
             qs = qs.filter(series__slug=series_param)
     if status:
         qs = qs.filter(reading_log__status=status)
     if rating:
-        qs = qs.filter(review__rating=rating)
+        # A non-numeric or absurdly large rating can never match; avoid a 500.
+        qs = qs.filter(review__rating=rating) if rating.isdigit() and len(rating) <= 3 else qs.none()
     if missing:
         qs = apply_health_missing_filter(qs, missing)
     tag_slug = request.GET.get("tag")
@@ -1302,7 +1304,7 @@ class FinishedOnDayView(LoginRequiredMixin, View):
     def get(self, request, year: int, month: int, day: int):
         try:
             target_date = date(year, month, day)
-        except ValueError:
+        except (ValueError, OverflowError):
             return HttpResponse(status=404)
         books = books_finished_on(target_date)
         return render(
