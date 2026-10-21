@@ -68,6 +68,9 @@ class TestEpubLookupView:
         r = logged_in.post(reverse("web:book-epub-metadata"), {"epub_file": make_epub()})
         assert r.status_code == 200
         assert b"Small Book" in r.content
+        assert b"Metadata loaded from the uploaded file." in r.content
+        assert b"Open Library" not in r.content
+        assert b"text-green-700" in r.content
 
     def test_oversized_epub_shows_a_message_not_a_server_error(self, logged_in, monkeypatch):
         monkeypatch.setattr(epub_metadata, "MAX_XML_BYTES", 1024)
@@ -76,6 +79,7 @@ class TestEpubLookupView:
         )
         assert r.status_code == 200
         assert b"too large" in r.content
+        assert b"text-red-700" in r.content and b"text-green-700" not in r.content
 
     def test_requires_login(self, client):
         r = client.post(reverse("web:book-epub-metadata"), {"epub_file": make_epub()})

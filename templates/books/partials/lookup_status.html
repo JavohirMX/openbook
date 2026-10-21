@@ -1,1 +1,1 @@
-<p class="text-green-700 dark:text-green-400">{{ message }}</p>
+<p role="{% if error %}alert{% else %}status{% endif %}" class="{% if error %}text-red-700 dark:text-red-400{% else %}text-green-700 dark:text-green-400{% endif %}">{{ message }}</p>
