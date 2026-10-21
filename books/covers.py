@@ -120,6 +120,10 @@ def _get_session() -> requests.Session:
     global _session
     if _session is None:
         _session = requests.Session()
+        # Direct connections only: ignore HTTP(S)_PROXY and friends from the
+        # environment. Through a proxy the peer we connect to is the proxy, not
+        # the cover host, so the check below would vouch for the wrong address.
+        _session.trust_env = False
         adapter = _PublicOnlyAdapter()
         _session.mount("http://", adapter)
         _session.mount("https://", adapter)

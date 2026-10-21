@@ -206,7 +206,9 @@ APP_VERSION = os.environ.get("APP_VERSION", "0.1.0")
 
 # Cover images are fetched from URLs stored on a book. By default the server only connects to
 # public addresses. Set true to allow private/LAN/loopback hosts (for example covers served by
-# another box on your home network). Also needed when outbound traffic goes through an HTTP proxy.
+# another box on your home network). HTTP(S)_PROXY environment variables are ignored for cover
+# fetches: proxies are not supported there, because through a proxy the public-address check
+# would see the proxy's address, not the cover host's.
 COVER_FETCH_ALLOW_PRIVATE_HOSTS = os.environ.get(
     "COVER_FETCH_ALLOW_PRIVATE_HOSTS", "false"
 ).lower() in ("true", "1", "yes")
