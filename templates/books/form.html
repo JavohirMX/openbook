@@ -10,7 +10,7 @@
 
 <div class="surface-padded max-w-2xl mb-4">
   <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1" for="epub-file-input">EPUB / OPF metadata</label>
-  <form hx-post="{% url 'web:book-epub-metadata' %}" hx-target="#book-form-fields" hx-encoding="multipart/form-data" class="flex gap-2 items-center">
+  <form hx-post="{% url 'web:book-epub-metadata' %}" hx-target="#lookup-result" hx-encoding="multipart/form-data" class="flex gap-2 items-center">
     {% csrf_token %}
     <input type="file" name="epub_file" id="epub-file-input" accept=".epub,.opf,application/epub+zip" class="file-input text-sm flex-1">
     <button type="submit" class="btn-secondary text-sm shrink-0">Import metadata</button>

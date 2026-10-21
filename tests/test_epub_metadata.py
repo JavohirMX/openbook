@@ -80,3 +80,10 @@ class TestEpubLookupView:
     def test_requires_login(self, client):
         r = client.post(reverse("web:book-epub-metadata"), {"epub_file": make_epub()})
         assert r.status_code in (302, 401, 403)
+
+    def test_form_swaps_the_result_into_the_lookup_area_not_the_form_fields(self, logged_in):
+        html = logged_in.get(reverse("web:book-add")).content.decode()
+        epub_form = html[html.index('hx-post="' + reverse("web:book-epub-metadata"))
+                         :html.index("EPUB / OPF metadata") + 700]
+        assert 'hx-target="#lookup-result"' in epub_form
+        assert 'id="lookup-result"' in html

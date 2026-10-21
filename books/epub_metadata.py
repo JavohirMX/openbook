@@ -7,12 +7,14 @@ import xml.etree.ElementTree as ET
 import zipfile
 from io import BytesIO
 
+from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 
 # A metadata lookup only needs two small XML files, so cap what we are willing to read.
 # Real EPUBs are usually under 30 MB; the XML members are a few KB.
-MAX_UPLOAD_BYTES = 100 * 1024 * 1024
-MAX_XML_BYTES = 2 * 1024 * 1024
+# Defaults can be changed with EPUB_MAX_UPLOAD_MB and EPUB_MAX_XML_MB in settings/env.
+MAX_UPLOAD_BYTES = int(getattr(settings, "EPUB_MAX_UPLOAD_MB", 100) * 1024 * 1024)
+MAX_XML_BYTES = int(getattr(settings, "EPUB_MAX_XML_MB", 2) * 1024 * 1024)
 
 
 class EpubMetadataError(ValueError):
@@ -106,10 +108,10 @@ def _read_epub_opf(data: bytes) -> bytes | None:
 def extract_metadata_from_upload(upload: UploadedFile) -> dict:
     name = (upload.name or "").lower()
     if (upload.size or 0) > MAX_UPLOAD_BYTES:
-        raise EpubMetadataError("That file is too large (limit 100 MB).")
+        raise EpubMetadataError(f"That file is too large (limit {MAX_UPLOAD_BYTES // (1024 * 1024)} MB).")
     data = upload.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
-        raise EpubMetadataError("That file is too large (limit 100 MB).")
+        raise EpubMetadataError(f"That file is too large (limit {MAX_UPLOAD_BYTES // (1024 * 1024)} MB).")
     upload.seek(0)
 
     if name.endswith(".opf"):

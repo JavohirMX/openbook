@@ -72,6 +72,8 @@ Copy [.env.example](../.env.example) to `.env` for local development.
 | `OPENLIBRARY_BASE_URL` | `https://openlibrary.org` | Override for testing |
 | `GOOGLE_BOOKS_BASE_URL` | `https://www.googleapis.com/books/v1` | Fallback provider |
 | `OPENLIBRARY_CONTACT_EMAIL` | *(empty)* | **Strongly recommended** — identified User-Agent gets 3 req/s; without email, 1 req/s |
+| `EPUB_MAX_UPLOAD_MB` | `100` | Largest EPUB/OPF accepted by the add-book metadata import |
+| `EPUB_MAX_XML_MB` | `2` | Largest metadata XML part read from inside an EPUB |
 | `METADATA_CONNECT_TIMEOUT` | `5` | HTTP connect timeout (seconds) |
 | `METADATA_READ_TIMEOUT` | `10` | HTTP read timeout (seconds) |
 | `METADATA_RETRY_COUNT` | `1` | Retries on transient failures |
