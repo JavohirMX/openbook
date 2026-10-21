@@ -105,6 +105,7 @@ from books.stats import (
 )
 from books.status_shelves import get_status_shelf, get_status_shelves
 from books.covers import download_cover, remove_stored_cover, save_uploaded_cover
+from books.epub_metadata import EpubMetadataError, extract_metadata_from_upload
 
 
 METADATA_LOCK_FIELDS = [
@@ -521,7 +522,10 @@ def epub_metadata_lookup(request):
     upload = request.FILES.get("epub_file")
     if not upload:
         return render(request, "books/partials/lookup_status.html", {"message": "Choose an EPUB or OPF file."})
-    meta = extract_metadata_from_upload(upload)
+    try:
+        meta = extract_metadata_from_upload(upload)
+    except EpubMetadataError as exc:
+        return render(request, "books/partials/lookup_status.html", {"message": str(exc)})
     if not meta.get("title") and not meta.get("authors"):
         return render(
             request,

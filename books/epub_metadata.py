@@ -9,6 +9,31 @@ from io import BytesIO
 
 from django.core.files.uploadedfile import UploadedFile
 
+# A metadata lookup only needs two small XML files, so cap what we are willing to read.
+# Real EPUBs are usually under 30 MB; the XML members are a few KB.
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+MAX_XML_BYTES = 2 * 1024 * 1024
+
+
+class EpubMetadataError(ValueError):
+    """The file is too large or malformed to read metadata from. The message is safe to show."""
+
+
+def _read_member(archive: zipfile.ZipFile, name: str) -> bytes:
+    """Read one zip member, refusing to inflate more than MAX_XML_BYTES.
+
+    The declared size is checked before anything is inflated, and the read is bounded as a
+    second guard (zipfile itself also stops at the declared size).
+    """
+    info = archive.getinfo(name)
+    if info.file_size > MAX_XML_BYTES:
+        raise EpubMetadataError("That file's metadata is too large to read.")
+    with archive.open(info) as handle:
+        data = handle.read(MAX_XML_BYTES + 1)
+    if len(data) > MAX_XML_BYTES:
+        raise EpubMetadataError("That file's metadata is too large to read.")
+    return data
+
 
 def _local(tag: str) -> str:
     return tag.rsplit("}", 1)[-1] if "}" in tag else tag
@@ -22,7 +47,10 @@ def _text(element: ET.Element | None) -> str | None:
 
 
 def _parse_opf_xml(content: bytes) -> dict:
-    root = ET.fromstring(content)
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as exc:
+        raise EpubMetadataError("That file's metadata could not be read.") from exc
     metadata: dict = {"authors": [], "genres": []}
     for child in root.iter():
         tag = _local(child.tag)
@@ -53,11 +81,18 @@ def _parse_opf_xml(content: bytes) -> dict:
 
 
 def _read_epub_opf(data: bytes) -> bytes | None:
-    with zipfile.ZipFile(BytesIO(data)) as archive:
+    try:
+        archive_cm = zipfile.ZipFile(BytesIO(data))
+    except zipfile.BadZipFile as exc:
+        raise EpubMetadataError("That file is not a valid EPUB.") from exc
+    with archive_cm as archive:
         container_path = "META-INF/container.xml"
         if container_path not in archive.namelist():
             return None
-        container = ET.fromstring(archive.read(container_path))
+        try:
+            container = ET.fromstring(_read_member(archive, container_path))
+        except ET.ParseError as exc:
+            raise EpubMetadataError("That file's metadata could not be read.") from exc
         opf_path = None
         for element in container.iter():
             if _local(element.tag) == "rootfile":
@@ -65,15 +100,21 @@ def _read_epub_opf(data: bytes) -> bytes | None:
                 break
         if not opf_path or opf_path not in archive.namelist():
             return None
-        return archive.read(opf_path)
+        return _read_member(archive, opf_path)
 
 
 def extract_metadata_from_upload(upload: UploadedFile) -> dict:
     name = (upload.name or "").lower()
-    data = upload.read()
+    if (upload.size or 0) > MAX_UPLOAD_BYTES:
+        raise EpubMetadataError("That file is too large (limit 100 MB).")
+    data = upload.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise EpubMetadataError("That file is too large (limit 100 MB).")
     upload.seek(0)
 
     if name.endswith(".opf"):
+        if len(data) > MAX_XML_BYTES:
+            raise EpubMetadataError("That file's metadata is too large to read.")
         return _parse_opf_xml(data)
 
     if name.endswith(".epub"):
