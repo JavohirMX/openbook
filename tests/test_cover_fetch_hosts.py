@@ -81,16 +81,26 @@ def test_redirect_to_a_blocked_address_is_refused(servers, settings, monkeypatch
 
 def test_environment_proxies_are_ignored(servers, settings, monkeypatch):
     # Through a proxy the peer check would vouch for the proxy's address, not the
-    # cover host's, so cover fetches ignore proxy environment variables and
-    # always connect directly. Point the env at a dead proxy: if it were used,
-    # this fetch would fail.
+    # cover host's, so cover fetches ignore proxy environment variables. A
+    # localhost target alone could bypass an env proxy for other reasons, so
+    # also assert the adapter is called with no proxies at all.
     settings.COVER_FETCH_ALLOW_PRIVATE_HOSTS = True
     monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:9")
     monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:9")
     session = covers._get_session()
     assert session.trust_env is False
+    sent = {}
+    adapter = session.get_adapter("http://example.invalid/")
+    real_send = adapter.send
+
+    def spy_send(request, **kwargs):
+        sent.update(kwargs)
+        return real_send(request, **kwargs)
+
+    monkeypatch.setattr(adapter, "send", spy_send)
     got = covers._fetch_cover_bytes(f"http://127.0.0.1:{servers[0]}/c.png")
     assert got is not None and got[0] == PNG
+    assert sent["proxies"] == {}
 
 
 @pytest.mark.parametrize(
