@@ -204,6 +204,12 @@ GOOGLE_BOOKS_API_KEY = os.environ.get("GOOGLE_BOOKS_API_KEY", "").strip()
 OPENLIBRARY_CONTACT_EMAIL = os.environ.get("OPENLIBRARY_CONTACT_EMAIL", "").strip()
 APP_VERSION = os.environ.get("APP_VERSION", "0.1.0")
 
+# Cover images are fetched from URLs stored on a book. By default the server only connects to
+# public addresses. Set true to allow private/LAN/loopback hosts (for example covers served by
+# another box on your home network). Also needed when outbound traffic goes through an HTTP proxy.
+COVER_FETCH_ALLOW_PRIVATE_HOSTS = os.environ.get(
+    "COVER_FETCH_ALLOW_PRIVATE_HOSTS", "false"
+).lower() in ("true", "1", "yes")
 METADATA_CONNECT_TIMEOUT = float(os.environ.get("METADATA_CONNECT_TIMEOUT", "5"))
 METADATA_READ_TIMEOUT = float(os.environ.get("METADATA_READ_TIMEOUT", "10"))
 METADATA_RETRY_COUNT = int(os.environ.get("METADATA_RETRY_COUNT", "1"))
