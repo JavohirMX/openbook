@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import ipaddress
 import logging
 import mimetypes
 import struct
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 from django.conf import settings
 from django.core.files.base import ContentFile
 
@@ -50,10 +54,79 @@ def _metadata_timeout() -> tuple[float, float]:
     return (connect, read)
 
 
+def _allow_private_hosts() -> bool:
+    return bool(getattr(settings, "COVER_FETCH_ALLOW_PRIVATE_HOSTS", False))
+
+
+def _peer_is_allowed(sock) -> bool:
+    """True if the address we actually connected to is a public one.
+
+    Checked on the connected socket, not on a name resolved earlier, so a hostname that
+    resolves differently the second time (DNS rebinding) or a redirect to an internal
+    address cannot get around it. Every redirect hop opens its own connection and goes
+    through the same check.
+    """
+    if _allow_private_hosts():
+        return True
+    try:
+        address = ipaddress.ip_address(sock.getpeername()[0].split("%")[0])
+    except (OSError, ValueError):
+        return False
+    mapped = getattr(address, "ipv4_mapped", None)
+    if mapped is not None:
+        address = mapped
+    return address.is_global
+
+
+class _BlockedHostError(OSError):
+    pass
+
+
+class _PublicOnlyMixin:
+    def _new_conn(self):
+        sock = super()._new_conn()
+        if not _peer_is_allowed(sock):
+            sock.close()
+            raise _BlockedHostError("cover host is not a public address")
+        return sock
+
+
+class _PublicOnlyHTTPConnection(_PublicOnlyMixin, HTTPConnection):
+    pass
+
+
+class _PublicOnlyHTTPSConnection(_PublicOnlyMixin, HTTPSConnection):
+    pass
+
+
+class _PublicOnlyHTTPPool(HTTPConnectionPool):
+    ConnectionCls = _PublicOnlyHTTPConnection
+
+
+class _PublicOnlyHTTPSPool(HTTPSConnectionPool):
+    ConnectionCls = _PublicOnlyHTTPSConnection
+
+
+class _PublicOnlyAdapter(HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        super().init_poolmanager(*args, **kwargs)
+        self.poolmanager.pool_classes_by_scheme = {
+            "http": _PublicOnlyHTTPPool,
+            "https": _PublicOnlyHTTPSPool,
+        }
+
+
 def _get_session() -> requests.Session:
     global _session
     if _session is None:
         _session = requests.Session()
+        # Direct connections only: ignore HTTP(S)_PROXY and friends from the
+        # environment. Through a proxy the peer we connect to is the proxy, not
+        # the cover host, so the check below would vouch for the wrong address.
+        _session.trust_env = False
+        adapter = _PublicOnlyAdapter()
+        _session.mount("http://", adapter)
+        _session.mount("https://", adapter)
         _session.headers.update({
             "User-Agent": _metadata_user_agent(),
             "Accept": _SESSION_ACCEPT,

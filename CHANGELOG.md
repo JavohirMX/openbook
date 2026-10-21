@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Cover downloads now only connect to public IP addresses, checked on the connected socket so redirects and DNS tricks cannot reach internal hosts (e.g. `127.0.0.1`, `192.168.x.x`, `169.254.169.254`). HTTP(S) proxy environment variables are ignored for cover fetches (proxies are not supported there, since the check cannot see the real destination through one). Self-hosters who serve covers from their LAN can set `COVER_FETCH_ALLOW_PRIVATE_HOSTS=true`.
 - Metadata lookups use a conditional provider chain by default (`METADATA_LOOKUP_STRATEGY=chain`): Open Library first; Google Books and Wikidata only when needed. Import uses a strict chain; interactive lookups may still call Google Books for missing description, year, or publisher. Set `METADATA_LOOKUP_STRATEGY=parallel` for legacy merge-all behavior.
 
 ### Added

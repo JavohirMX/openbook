@@ -72,6 +72,7 @@ Copy [.env.example](../.env.example) to `.env` for local development.
 | `OPENLIBRARY_BASE_URL` | `https://openlibrary.org` | Override for testing |
 | `GOOGLE_BOOKS_BASE_URL` | `https://www.googleapis.com/books/v1` | Fallback provider |
 | `OPENLIBRARY_CONTACT_EMAIL` | *(empty)* | **Strongly recommended** — identified User-Agent gets 3 req/s; without email, 1 req/s |
+| `COVER_FETCH_ALLOW_PRIVATE_HOSTS` | `false` | Cover downloads only connect to public addresses (checked on the connected socket, on every redirect). Set `true` to allow LAN/loopback cover hosts; anyone who can set a cover URL can then make the server request internal addresses. Cover fetches ignore `HTTP_PROXY`/`HTTPS_PROXY`: proxies are unsupported there because the check would see the proxy's address, not the cover host's. |
 | `METADATA_CONNECT_TIMEOUT` | `5` | HTTP connect timeout (seconds) |
 | `METADATA_READ_TIMEOUT` | `10` | HTTP read timeout (seconds) |
 | `METADATA_RETRY_COUNT` | `1` | Retries on transient failures |
