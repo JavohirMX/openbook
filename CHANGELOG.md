@@ -123,6 +123,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker Compose sets `IMPORT_JOB_AUTO_PROCESS=false` on the web service (dedicated `worker` container drains the queue)
 - API `POST /api/v1/import/` now returns `202 Accepted` with a job id and status URL (poll `GET /api/v1/import/jobs/<id>/`)
 
+### Fixed
+
+- EPUB/OPF metadata lookup on the add-book form returned a server error (a missing import). It works again, and now refuses files over 100 MB or with XML parts over 2 MB, or that are not valid EPUBs, with a short message instead of reading them into memory.
+
+
 ## [0.1.0] - 2026-06-25
 
 Initial MVP release — self-hosted book tracker with REST API and web UI.

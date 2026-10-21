@@ -204,6 +204,9 @@ GOOGLE_BOOKS_API_KEY = os.environ.get("GOOGLE_BOOKS_API_KEY", "").strip()
 OPENLIBRARY_CONTACT_EMAIL = os.environ.get("OPENLIBRARY_CONTACT_EMAIL", "").strip()
 APP_VERSION = os.environ.get("APP_VERSION", "0.1.0")
 
+# Limits for reading metadata from an uploaded EPUB/OPF on the add-book form.
+EPUB_MAX_UPLOAD_MB = float(os.environ.get("EPUB_MAX_UPLOAD_MB", "100"))
+EPUB_MAX_XML_MB = float(os.environ.get("EPUB_MAX_XML_MB", "2"))
 METADATA_CONNECT_TIMEOUT = float(os.environ.get("METADATA_CONNECT_TIMEOUT", "5"))
 METADATA_READ_TIMEOUT = float(os.environ.get("METADATA_READ_TIMEOUT", "10"))
 METADATA_RETRY_COUNT = int(os.environ.get("METADATA_RETRY_COUNT", "1"))

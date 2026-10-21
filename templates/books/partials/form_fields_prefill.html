@@ -7,4 +7,4 @@
   {% if meta.cover_url %}document.querySelector('[name=cover_url]').value = '{{ meta.cover_url|escapejs }}';{% endif %}
   {% if meta.description %}document.querySelector('[name=description]').value = '{{ meta.description|escapejs }}';{% endif %}
 </script>
-<p class="text-green-700 dark:text-green-400">Metadata loaded from Open Library / Google Books.</p>
+<p role="status" class="text-green-700 dark:text-green-400">Metadata loaded from {{ source|default:"Open Library / Google Books" }}.</p>
